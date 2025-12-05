@@ -66,7 +66,8 @@ AI_START = {"x": 7, "y": 5}      # Red car 🚗
 
 # Audience emoji set (for detecting audience members)
 AUDIENCE_EMOJIS = {"😃", "😐", "🤓", "😪", "😛", "🤔", "🫨", "🫢", "😯", "😆", "😳", "🤨", "😎", "🥸"}
-SCARED_EMOJIS = ["😨", "🫨", "😱", "😵", "😵‍💫"]
+SCARED_EMOJIS_LIST = ["😨", "🫨", "😱", "😵", "😵‍💫"]
+SCARED_EMOJIS = set(SCARED_EMOJIS_LIST)
 
 
 def get_initial_game_state():
@@ -253,7 +254,7 @@ def get_cell_type(state, x, y):
     
     if cell == "🟩":
         return "grass"
-    elif cell in AUDIENCE_EMOJIS or cell == "💀":
+    elif cell in AUDIENCE_EMOJIS or cell in SCARED_EMOJIS or cell == "💀":
         return "audience"
     elif cell == "🏁":
         return "finish"
@@ -331,7 +332,7 @@ def apply_move(state, entity, move):
 def calculate_ai_move(state):
     """
     Calculate the AI's next move.
-    Strategy: Accelerate toward next checkpoint, decelerate when close.
+    Strategy: Navigate checkpoints while staying on track, accelerate when safe, decelerate when approaching turns.
     """
     ai_data = state["ai"]
     valid_moves = get_valid_moves(state, "ai")
@@ -343,13 +344,31 @@ def calculate_ai_move(state):
     # Determine target based on checkpoints passed
     checkpoints_passed = len(ai_data["checkpoints_passed"])
     
+    # Define waypoints for smoother navigation around the track
+    # These guide the AI through the curves
+    WAYPOINTS = {
+        0: (4.5, 9.0),   # Before checkpoint 1 - head down-left
+        1: (8.5, 17.5),  # After CP1 - head toward bottom curve
+        2: (17.5, 9.0),  # After CP2 - head up-right  
+        3: (9.0, 5.5),   # After CP3 - head toward finish
+    }
+    
     if checkpoints_passed < 3:
-        # Target next checkpoint (center of checkpoint cells)
         next_checkpoint = checkpoints_passed + 1
         checkpoint_cells = CHECKPOINTS[next_checkpoint]
         target_y = sum(c[0] for c in checkpoint_cells) / len(checkpoint_cells)
         target_x = sum(c[1] for c in checkpoint_cells) / len(checkpoint_cells)
-        print(f"[AI] Targeting checkpoint {next_checkpoint} at ({target_x:.1f}, {target_y:.1f})")
+        
+        # Use waypoint if we're far from checkpoint
+        waypoint_x, waypoint_y = WAYPOINTS.get(checkpoints_passed, (target_x, target_y))
+        current_dist_to_cp = ((ai_data["x"] - target_x) ** 2 + (ai_data["y"] - target_y) ** 2) ** 0.5
+        
+        # If far from checkpoint, use waypoint for smoother pathing
+        if current_dist_to_cp > 8:
+            target_x, target_y = waypoint_x, waypoint_y
+            print(f"[AI] Using waypoint for checkpoint {next_checkpoint}: ({target_x:.1f}, {target_y:.1f})")
+        else:
+            print(f"[AI] Targeting checkpoint {next_checkpoint} directly at ({target_x:.1f}, {target_y:.1f})")
     else:
         # Target finish line
         target_y = sum(c[0] for c in FINISH_LINE) / len(FINISH_LINE)
@@ -369,24 +388,54 @@ def calculate_ai_move(state):
         # Distance to target after move
         new_dist = ((move["x"] - target_x) ** 2 + (move["y"] - target_y) ** 2) ** 0.5
         
-        # Prefer moves that get closer to target
-        score += (current_dist - new_dist) * 10
+        # Prefer moves that get closer to target (weighted heavily)
+        score += (current_dist - new_dist) * 15
         
         # Check if move lands on penalty zone
         cell_type = get_cell_type(state, move["x"], move["y"])
         if cell_type in ["grass", "audience"]:
-            score -= 100  # Heavy penalty for off-track
+            score -= 200  # Very heavy penalty for off-track
+        elif cell_type == "track" or cell_type == "finish":
+            score += 5  # Small bonus for staying on track
         
         # Check for collision with player
         if move["x"] == state["player"]["x"] and move["y"] == state["player"]["y"]:
-            score -= 50  # Penalty for collision
+            score -= 100  # Heavy penalty for collision
         
-        # If close to target, prefer slower speeds (deceleration)
-        if new_dist < 5:
-            speed = (move["vx"] ** 2 + move["vy"] ** 2) ** 0.5
-            score -= speed * 2  # Prefer lower speed when close
+        # Speed management based on distance to target
+        speed = (move["vx"] ** 2 + move["vy"] ** 2) ** 0.5
         
-        print(f"[AI] Move to ({move['x']}, {move['y']}) score: {score:.2f}")
+        if new_dist < 4:
+            # Very close - prefer lower speeds
+            score -= speed * 5
+        elif new_dist < 8:
+            # Approaching - moderate speed
+            score -= speed * 2
+        else:
+            # Far away - prefer higher speeds (but not too fast)
+            if speed <= 3:
+                score += speed * 3
+            else:
+                score -= (speed - 3) * 5  # Penalize very high speeds
+        
+        # Look ahead: check if next move from this position would be on track
+        lookahead_safe = True
+        for dvx in [-1, 0, 1]:
+            for dvy in [-1, 0, 1]:
+                next_x = move["x"] + move["vx"] + dvx
+                next_y = move["y"] + move["vy"] + dvy
+                if 0 <= next_x < 24 and 0 <= next_y < 24:
+                    next_cell = get_cell_type(state, next_x, next_y)
+                    if next_cell not in ["grass", "audience"]:
+                        lookahead_safe = True
+                        break
+            if lookahead_safe:
+                break
+        
+        if not lookahead_safe:
+            score -= 30  # Penalty if we might get stuck
+        
+        print(f"[AI] Move to ({move['x']}, {move['y']}) v=({move['vx']}, {move['vy']}) score: {score:.2f}")
         
         if score > best_score:
             best_score = score
@@ -459,7 +508,7 @@ def update_audience_reactions(state):
         
         # If car is within 3 squares, make audience scared
         if min_dist <= 3:
-            state["track"][y][x] = random.choice(SCARED_EMOJIS)
+            state["track"][y][x] = random.choice(SCARED_EMOJIS_LIST)
         else:
             state["track"][y][x] = original_emoji
     
