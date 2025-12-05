@@ -2,6 +2,17 @@
 
 Welcome to Chainguard's Vibelympics, our first ever vibe coding tournament, where the only rule is writing code without looking at the code! 
 
+## Project 1:
+
+### 🚗🚗🚙🚙🏁🏆 Ultimate Racer
+
+**An emoji-only turn-based racing game**
+
+Race your blue car 🚙 against an AI opponent 🚗 around an emoji track.
+
+- **Momentum-based movement**: Your velocity carries over each turn. Plan your moves carefully!
+- **Penalties**: Go off-track onto grass 🟩 or hit the audience 😃→💀 and you'll skip a turn
+
 ## Entering the Competition
 
 To register for the competition, follow these steps:
