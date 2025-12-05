@@ -1,0 +1,15 @@
+[project]
+name = "ultimate-racer-backend"
+version = "1.0.0"
+description = "Backend API for Ultimate Racer - Emoji Racing Game"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "gunicorn>=21.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
