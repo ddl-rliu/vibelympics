@@ -20,6 +20,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isHealthy, setIsHealthy] = useState(false);
   const [hasSeenIntro, setHasSeenIntro] = useState(false);
+  const [error, setError] = useState(false);
 
   // Check if user has seen intro animation before
   useEffect(() => {
@@ -55,6 +56,7 @@ function App() {
   const startNewGame = useCallback(async () => {
     console.log('[APP] Starting new game...');
     setIsLoading(true);
+    setError(false);
     
     try {
       const state = await newGame();
@@ -70,11 +72,35 @@ function App() {
       setValidMoves(movesResponse.moves);
       
       console.log('[APP] Game started successfully');
-    } catch (error) {
-      console.error('[APP] Failed to start game:', error);
+    } catch (err) {
+      console.error('[APP] Failed to start game:', err);
+      setError(true);
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Process AI turns (handles multiple turns if player has penalties)
+  const processAITurns = useCallback(async (state: GameState): Promise<GameState> => {
+    let currentState = state;
+    
+    // Keep processing AI turns while it's AI's turn
+    while (currentState.current_turn === 'ai' && !currentState.game_over) {
+      console.log('[APP] Processing AI turn...');
+      
+      // Small delay for visual feedback
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      currentState = await aiMove(currentState);
+      setGameState(currentState);
+      
+      if (currentState.game_over) {
+        console.log('[APP] Game over after AI move! Winner:', currentState.winner);
+        return currentState;
+      }
+    }
+    
+    return currentState;
   }, []);
 
   // Handle player move selection
@@ -87,13 +113,14 @@ function App() {
     console.log('[APP] Player selected move:', move.x, move.y);
     setIsLoading(true);
     setValidMoves([]);
+    setError(false);
     
     try {
       // Execute player move
       let state = await makeMove(gameState, move);
       setGameState(state);
       
-      // Check if game is over
+      // Check if game is over after player move
       if (state.game_over) {
         console.log('[APP] Game over! Winner:', state.winner);
         setPhase('victory');
@@ -101,58 +128,56 @@ function App() {
         return;
       }
       
-      // If it's now AI's turn, execute AI move
-      if (state.current_turn === 'ai') {
-        console.log('[APP] Executing AI turn...');
+      // Process AI turns
+      state = await processAITurns(state);
+      
+      if (state.game_over) {
+        setPhase('victory');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Get new moves for player
+      const movesResponse = await getMoves(state);
+      
+      // Handle player penalty turns
+      while (movesResponse.penalty && !state.game_over) {
+        console.log('[APP] Player has penalty, processing more AI turns...');
         
-        // Small delay for visual feedback
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Update penalty state
+        state = await processAITurns(state);
         
-        state = await aiMove(state);
-        setGameState(state);
-        
-        // Check if game is over after AI move
         if (state.game_over) {
-          console.log('[APP] Game over after AI turn! Winner:', state.winner);
           setPhase('victory');
           setIsLoading(false);
           return;
         }
         
-        // Get new moves for player
-        const movesResponse = await getMoves(state);
-        
-        // Handle player penalty (skipped turn)
-        if (movesResponse.penalty || movesResponse.moves.length === 0) {
-          console.log('[APP] Player has penalty, AI plays again...');
-          
-          await new Promise(resolve => setTimeout(resolve, 500));
-          state = await aiMove(state);
-          setGameState(state);
-          
-          if (state.game_over) {
-            setPhase('victory');
-            setIsLoading(false);
-            return;
-          }
-          
-          const newMoves = await getMoves(state);
+        // Check if player still has penalty
+        const newMoves = await getMoves(state);
+        if (!newMoves.penalty) {
           setValidMoves(newMoves.moves);
-        } else {
-          setValidMoves(movesResponse.moves);
+          break;
         }
       }
-    } catch (error) {
-      console.error('[APP] Error during move:', error);
+      
+      if (!movesResponse.penalty) {
+        setValidMoves(movesResponse.moves);
+      }
+      
+    } catch (err) {
+      console.error('[APP] Error during move:', err);
+      setError(true);
     } finally {
       setIsLoading(false);
     }
-  }, [gameState, isLoading]);
+  }, [gameState, isLoading, processAITurns]);
 
   // Handle restart
   const handleRestart = useCallback(() => {
     console.log('[APP] Restarting game...');
     setPhase('playing');
+    setError(false);
     startNewGame();
   }, [startNewGame]);
 
@@ -161,6 +186,25 @@ function App() {
     console.log('[APP] Intro complete, starting game...');
     startNewGame();
   }, [startNewGame]);
+
+  // Error screen
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-6xl">💥</div>
+        <div className="text-4xl">😵</div>
+        <button 
+          onClick={() => {
+            setError(false);
+            setPhase('intro');
+          }}
+          className="text-4xl mt-4 hover:scale-110 transition-transform cursor-pointer"
+        >
+          🔄️
+        </button>
+      </div>
+    );
+  }
 
   // Loading screen while waiting for backend
   if (!isHealthy) {
@@ -181,7 +225,7 @@ function App() {
   if (phase === 'intro' && hasSeenIntro) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <div className="text-6xl mb-8">🏎️💨</div>
+        <div className="text-6xl mb-8 animate-bounce">🏎️💨</div>
         <button 
           onClick={startNewGame}
           className="start-button text-6xl hover:scale-110 transition-transform"
@@ -198,20 +242,36 @@ function App() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         {/* Turn indicator */}
-        <div className="mb-4 text-4xl turn-indicator">
+        <div className="mb-4 text-4xl turn-indicator flex items-center gap-2">
           {gameState.current_turn === 'player' ? '🚙' : '🚗'}
-          {isLoading && <span className="ml-2 loading inline-block">⏳</span>}
+          <span className="text-2xl">➡️</span>
+          {isLoading && <span className="loading inline-block">⏳</span>}
         </div>
         
-        {/* Checkpoint progress */}
-        <div className="mb-4 flex gap-2 text-2xl">
-          <span className={gameState.player.checkpoints_passed.includes(1) ? 'opacity-100' : 'opacity-30'}>1️⃣</span>
-          <span>➡️</span>
-          <span className={gameState.player.checkpoints_passed.includes(2) ? 'opacity-100' : 'opacity-30'}>2️⃣</span>
-          <span>➡️</span>
-          <span className={gameState.player.checkpoints_passed.includes(3) ? 'opacity-100' : 'opacity-30'}>3️⃣</span>
-          <span>➡️</span>
-          <span className={gameState.player.finished ? 'opacity-100' : 'opacity-30'}>🏁</span>
+        {/* Checkpoint progress - show both players */}
+        <div className="mb-4 flex flex-col gap-2">
+          {/* Player progress */}
+          <div className="flex gap-2 text-xl items-center">
+            <span>🚙</span>
+            <span className={gameState.player.checkpoints_passed.includes(1) ? 'opacity-100' : 'opacity-30'}>1️⃣</span>
+            <span className="text-sm">→</span>
+            <span className={gameState.player.checkpoints_passed.includes(2) ? 'opacity-100' : 'opacity-30'}>2️⃣</span>
+            <span className="text-sm">→</span>
+            <span className={gameState.player.checkpoints_passed.includes(3) ? 'opacity-100' : 'opacity-30'}>3️⃣</span>
+            <span className="text-sm">→</span>
+            <span className={gameState.player.finished ? 'opacity-100' : 'opacity-30'}>🏁</span>
+          </div>
+          {/* AI progress */}
+          <div className="flex gap-2 text-xl items-center">
+            <span>🚗</span>
+            <span className={gameState.ai.checkpoints_passed.includes(1) ? 'opacity-100' : 'opacity-30'}>1️⃣</span>
+            <span className="text-sm">→</span>
+            <span className={gameState.ai.checkpoints_passed.includes(2) ? 'opacity-100' : 'opacity-30'}>2️⃣</span>
+            <span className="text-sm">→</span>
+            <span className={gameState.ai.checkpoints_passed.includes(3) ? 'opacity-100' : 'opacity-30'}>3️⃣</span>
+            <span className="text-sm">→</span>
+            <span className={gameState.ai.finished ? 'opacity-100' : 'opacity-30'}>🏁</span>
+          </div>
         </div>
         
         {/* Track */}
@@ -222,17 +282,28 @@ function App() {
           isPlayerTurn={gameState.current_turn === 'player' && !isLoading}
         />
         
-        {/* Velocity display */}
-        <div className="mt-4 flex gap-8 text-xl">
-          <div className="flex items-center gap-2">
-            <span>🚙</span>
-            <span>⬆️{gameState.player.vy >= 0 ? '' : '-'}{Math.abs(gameState.player.vy)}</span>
-            <span>➡️{gameState.player.vx >= 0 ? '' : '-'}{Math.abs(gameState.player.vx)}</span>
+        {/* Penalty indicator */}
+        {gameState.player.penalty_turns > 0 && (
+          <div className="mt-2 text-2xl animate-pulse">
+            ⚠️ {Array(gameState.player.penalty_turns).fill('⏸️').join('')}
           </div>
-          <div className="flex items-center gap-2">
+        )}
+        
+        {/* Velocity display */}
+        <div className="mt-4 flex gap-8 text-lg">
+          <div className="flex items-center gap-1 bg-blue-500/20 px-3 py-1 rounded-lg">
+            <span>🚙</span>
+            <span className="text-sm">↕️</span>
+            <span>{gameState.player.vy}</span>
+            <span className="text-sm">↔️</span>
+            <span>{gameState.player.vx}</span>
+          </div>
+          <div className="flex items-center gap-1 bg-red-500/20 px-3 py-1 rounded-lg">
             <span>🚗</span>
-            <span>⬆️{gameState.ai.vy >= 0 ? '' : '-'}{Math.abs(gameState.ai.vy)}</span>
-            <span>➡️{gameState.ai.vx >= 0 ? '' : '-'}{Math.abs(gameState.ai.vx)}</span>
+            <span className="text-sm">↕️</span>
+            <span>{gameState.ai.vy}</span>
+            <span className="text-sm">↔️</span>
+            <span>{gameState.ai.vx}</span>
           </div>
         </div>
       </div>
@@ -261,4 +332,3 @@ function App() {
 }
 
 export default App;
-
