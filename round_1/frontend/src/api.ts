@@ -104,6 +104,30 @@ export async function aiMove(state: GameState): Promise<GameState> {
 }
 
 /**
+ * Skip the current player's turn (due to penalty)
+ */
+export async function skipTurn(state: GameState): Promise<GameState> {
+  console.log('[API] Skipping turn for:', state.current_turn);
+  
+  const response = await fetch(`${API_URL}/api/game/skip-turn`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(state),
+  });
+  
+  if (!response.ok) {
+    console.error('[API] Failed to skip turn:', response.status);
+    throw new Error('Failed to skip turn');
+  }
+  
+  const newState = await response.json();
+  console.log('[API] Turn skipped. Turn:', newState.current_turn, 'Game over:', newState.game_over);
+  return newState;
+}
+
+/**
  * Health check
  */
 export async function healthCheck(): Promise<boolean> {

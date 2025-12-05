@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { GameState, Move, GamePhase } from './types';
-import { newGame, getMoves, makeMove, aiMove, healthCheck } from './api';
+import { newGame, getMoves, makeMove, aiMove, skipTurn, healthCheck } from './api';
 import Track from './components/Track';
 import VictoryPopup from './components/VictoryPopup';
 import IntroAnimation from './components/IntroAnimation';
@@ -80,23 +80,42 @@ function App() {
     }
   }, []);
 
-  // Process AI turns (handles multiple turns if player has penalties)
-  const processAITurns = useCallback(async (state: GameState): Promise<GameState> => {
+  // Process turns for AI and handle penalties
+  const processGameLoop = useCallback(async (state: GameState): Promise<GameState> => {
     let currentState = state;
     
-    // Keep processing AI turns while it's AI's turn
-    while (currentState.current_turn === 'ai' && !currentState.game_over) {
-      console.log('[APP] Processing AI turn...');
+    // Keep processing turns until it's the player's turn with valid moves
+    while (!currentState.game_over) {
+      console.log(`[APP] Processing turn. Current: ${currentState.current_turn}`);
       
-      // Small delay for visual feedback
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      currentState = await aiMove(currentState);
-      setGameState(currentState);
-      
-      if (currentState.game_over) {
-        console.log('[APP] Game over after AI move! Winner:', currentState.winner);
-        return currentState;
+      if (currentState.current_turn === 'ai') {
+        // AI's turn
+        await new Promise(resolve => setTimeout(resolve, 600));
+        currentState = await aiMove(currentState);
+        setGameState(currentState);
+        
+        if (currentState.game_over) {
+          return currentState;
+        }
+      } else {
+        // Player's turn - check for penalty
+        const movesResponse = await getMoves(currentState);
+        
+        if (movesResponse.penalty) {
+          console.log('[APP] Player has penalty, skipping turn...');
+          await new Promise(resolve => setTimeout(resolve, 400));
+          currentState = await skipTurn(currentState);
+          setGameState(currentState);
+          
+          if (currentState.game_over) {
+            return currentState;
+          }
+          // Continue loop - now it's AI's turn
+        } else {
+          // Player has valid moves, set them and exit loop
+          setValidMoves(movesResponse.moves);
+          return currentState;
+        }
       }
     }
     
@@ -128,41 +147,11 @@ function App() {
         return;
       }
       
-      // Process AI turns
-      state = await processAITurns(state);
+      // Process game loop (AI turns, penalty handling)
+      state = await processGameLoop(state);
       
       if (state.game_over) {
         setPhase('victory');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Get new moves for player
-      const movesResponse = await getMoves(state);
-      
-      // Handle player penalty turns
-      while (movesResponse.penalty && !state.game_over) {
-        console.log('[APP] Player has penalty, processing more AI turns...');
-        
-        // Update penalty state
-        state = await processAITurns(state);
-        
-        if (state.game_over) {
-          setPhase('victory');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Check if player still has penalty
-        const newMoves = await getMoves(state);
-        if (!newMoves.penalty) {
-          setValidMoves(newMoves.moves);
-          break;
-        }
-      }
-      
-      if (!movesResponse.penalty) {
-        setValidMoves(movesResponse.moves);
       }
       
     } catch (err) {
@@ -171,7 +160,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [gameState, isLoading, processAITurns]);
+  }, [gameState, isLoading, processGameLoop]);
 
   // Handle restart
   const handleRestart = useCallback(() => {

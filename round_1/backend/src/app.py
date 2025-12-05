@@ -51,10 +51,11 @@ TRACK_LAYOUT = [
 
 # Checkpoint positions (list of cells that form each checkpoint)
 # Players must pass through these in order: 1 -> 2 -> 3 -> finish
+# Format is (row, column) = (y, x)
 CHECKPOINTS = {
-    1: [(9, 3), (9, 4), (9, 5), (9, 6)],  # Row 9, columns 3-6 (left side going down)
-    2: [(16, 8), (17, 8), (18, 8), (19, 8)],  # Rows 16-19, column 8 (bottom curve)
-    3: [(9, 17), (9, 18), (9, 19), (9, 20)],  # Row 9, columns 17-20 (right side going up)
+    1: [(9, 3), (9, 4), (9, 5), (9, 6), (9, 7), (9, 8)],  # Row 9, columns 3-8 (left side going down)
+    2: [(13, 8), (14, 8), (15, 8), (16, 8), (17, 8), (18, 8), (19, 8), (20, 8), (21, 8), (22, 8), (23, 8)],  # Column 8, rows 13-23 (bottom)
+    3: [(9, 14), (9, 15), (9, 16), (9, 17), (9, 18), (9, 19), (9, 20), (9, 21), (9, 22), (9, 23)],  # Row 9, columns 14-23 (right side going up)
 }
 
 # Finish line positions
@@ -346,11 +347,12 @@ def calculate_ai_move(state):
     
     # Define waypoints for smoother navigation around the track
     # These guide the AI through the curves
+    # Waypoints guide AI around track counter-clockwise: start -> CP1 (down-left) -> CP2 (bottom) -> CP3 (up-right) -> finish
     WAYPOINTS = {
-        0: (4.5, 9.0),   # Before checkpoint 1 - head down-left
-        1: (8.5, 17.5),  # After CP1 - head toward bottom curve
-        2: (17.5, 9.0),  # After CP2 - head up-right  
-        3: (9.0, 5.5),   # After CP3 - head toward finish
+        0: (5.5, 9.0),   # Before checkpoint 1 - head down to left side
+        1: (8.0, 18.0),  # After CP1 - head down toward bottom (CP2 at column 8)
+        2: (18.5, 9.0),  # After CP2 - head up-right toward CP3 (row 9, columns 14-23)
+        3: (9.0, 5.5),   # After CP3 - head left toward finish line
     }
     
     if checkpoints_passed < 3:
@@ -574,6 +576,36 @@ def make_move():
     else:
         # Apply the move
         state, penalty_reason = apply_move(state, entity, move)
+    
+    # Update audience reactions
+    state = update_audience_reactions(state)
+    
+    # Check for game over
+    state = check_game_over(state)
+    
+    # Switch turns if game not over
+    if not state["game_over"]:
+        if entity == "player":
+            state["current_turn"] = "ai"
+        else:
+            state["current_turn"] = "player"
+            state["turn_number"] += 1
+    
+    return jsonify(state)
+
+
+@app.route('/api/game/skip-turn', methods=['POST'])
+def skip_turn():
+    """Skip the current player's turn due to penalty and return updated game state."""
+    state = request.json
+    entity = state["current_turn"]
+    
+    print(f"[API] {entity} skipping turn due to penalty")
+    
+    # Decrement penalty turns
+    if state[entity]["penalty_turns"] > 0:
+        state[entity]["penalty_turns"] -= 1
+        print(f"[API] {entity} penalty decremented. {state[entity]['penalty_turns']} turns remaining.")
     
     # Update audience reactions
     state = update_audience_reactions(state)

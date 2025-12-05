@@ -1,9 +1,9 @@
 /**
  * IntroAnimation Component - Demonstrates game mechanics to new players
- * Shows a simulated mini-race to teach the core gameplay
+ * Shows a simulated mini-race moving counter-clockwise with history trails
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface IntroAnimationProps {
   onComplete: () => void;
@@ -21,7 +21,8 @@ const DEMO_TRACK = [
   ['🟩', '🟩', '🟩', '🟩', '🟩', '🟩', '🟩', '🟩', '🟩', '🟩', '🟩', '🟩'],
 ];
 
-// Demo animation frames - simulated game moves
+// Demo animation frames - counter-clockwise movement
+// Start near finish, go DOWN left side, then RIGHT across bottom, then UP right side, back to finish
 interface DemoFrame {
   playerPos: { x: number; y: number };
   aiPos: { x: number; y: number };
@@ -31,52 +32,52 @@ interface DemoFrame {
 }
 
 const DEMO_FRAMES: DemoFrame[] = [
-  // Starting positions
+  // Starting positions near finish line
   { playerPos: { x: 3, y: 3 }, aiPos: { x: 3, y: 2 }, highlight: 'player', validMoves: [
     { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 },
     { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 },
     { x: 2, y: 4 }, { x: 3, y: 4 }, { x: 4, y: 4 },
   ]},
-  // Player moves - show move selection
+  // Show move selection
   { playerPos: { x: 3, y: 3 }, aiPos: { x: 3, y: 2 }, highlight: 'moves', validMoves: [
     { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 },
     { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 },
     { x: 2, y: 4 }, { x: 3, y: 4 }, { x: 4, y: 4 },
   ]},
-  // Player selects move to the right
-  { playerPos: { x: 5, y: 3 }, aiPos: { x: 3, y: 2 }, highlight: 'player' },
-  // AI's turn
-  { playerPos: { x: 5, y: 3 }, aiPos: { x: 5, y: 2 }, highlight: 'ai' },
-  // Player accelerates
-  { playerPos: { x: 8, y: 3 }, aiPos: { x: 5, y: 2 }, highlight: 'player' },
-  // AI accelerates
-  { playerPos: { x: 8, y: 3 }, aiPos: { x: 8, y: 2 }, highlight: 'ai' },
-  // Player curves down
-  { playerPos: { x: 10, y: 4 }, aiPos: { x: 8, y: 2 }, highlight: 'player' },
-  // AI curves
-  { playerPos: { x: 10, y: 4 }, aiPos: { x: 10, y: 3 }, highlight: 'ai' },
-  // Player continues
-  { playerPos: { x: 10, y: 5 }, aiPos: { x: 10, y: 3 }, highlight: 'player' },
+  // Player moves DOWN (counter-clockwise - going left/down first)
+  { playerPos: { x: 2, y: 4 }, aiPos: { x: 3, y: 2 }, highlight: 'player' },
+  // AI moves DOWN
+  { playerPos: { x: 2, y: 4 }, aiPos: { x: 2, y: 3 }, highlight: 'ai' },
+  // Player continues DOWN
+  { playerPos: { x: 1, y: 5 }, aiPos: { x: 2, y: 3 }, highlight: 'player' },
+  // AI continues DOWN
+  { playerPos: { x: 1, y: 5 }, aiPos: { x: 1, y: 4 }, highlight: 'ai' },
+  // Player turns RIGHT at bottom
+  { playerPos: { x: 2, y: 5 }, aiPos: { x: 1, y: 4 }, highlight: 'player' },
   // AI continues
-  { playerPos: { x: 10, y: 5 }, aiPos: { x: 10, y: 5 }, highlight: 'ai' },
-  // Player heading left
-  { playerPos: { x: 8, y: 5 }, aiPos: { x: 10, y: 5 }, highlight: 'player' },
+  { playerPos: { x: 2, y: 5 }, aiPos: { x: 1, y: 5 }, highlight: 'ai' },
+  // Player moves RIGHT
+  { playerPos: { x: 4, y: 5 }, aiPos: { x: 1, y: 5 }, highlight: 'player' },
   // AI follows
-  { playerPos: { x: 8, y: 5 }, aiPos: { x: 8, y: 5 }, highlight: 'ai' },
-  // Player accelerates to finish
-  { playerPos: { x: 5, y: 5 }, aiPos: { x: 8, y: 5 }, highlight: 'player' },
+  { playerPos: { x: 4, y: 5 }, aiPos: { x: 3, y: 5 }, highlight: 'ai' },
+  // Player continues RIGHT
+  { playerPos: { x: 7, y: 5 }, aiPos: { x: 3, y: 5 }, highlight: 'player' },
+  // AI catches up
+  { playerPos: { x: 7, y: 5 }, aiPos: { x: 6, y: 5 }, highlight: 'ai' },
+  // Player turns UP on right side
+  { playerPos: { x: 9, y: 4 }, aiPos: { x: 6, y: 5 }, highlight: 'player' },
+  // AI follows
+  { playerPos: { x: 9, y: 4 }, aiPos: { x: 9, y: 5 }, highlight: 'ai' },
+  // Player continues UP
+  { playerPos: { x: 10, y: 3 }, aiPos: { x: 9, y: 5 }, highlight: 'player' },
+  // AI continues
+  { playerPos: { x: 10, y: 3 }, aiPos: { x: 10, y: 4 }, highlight: 'ai' },
+  // Player approaches finish
+  { playerPos: { x: 9, y: 2 }, aiPos: { x: 10, y: 4 }, highlight: 'player' },
   // AI catching up
-  { playerPos: { x: 5, y: 5 }, aiPos: { x: 5, y: 5 }, highlight: 'ai' },
-  // Player curves up
-  { playerPos: { x: 2, y: 4 }, aiPos: { x: 5, y: 5 }, highlight: 'player' },
-  // AI curves
-  { playerPos: { x: 2, y: 4 }, aiPos: { x: 2, y: 5 }, highlight: 'ai' },
-  // Player near finish
-  { playerPos: { x: 2, y: 3 }, aiPos: { x: 2, y: 5 }, highlight: 'player' },
-  // AI catching up
-  { playerPos: { x: 2, y: 3 }, aiPos: { x: 1, y: 3 }, highlight: 'ai' },
+  { playerPos: { x: 9, y: 2 }, aiPos: { x: 10, y: 3 }, highlight: 'ai' },
   // Player crosses finish!
-  { playerPos: { x: 4, y: 3 }, aiPos: { x: 1, y: 3 }, highlight: 'player', showCheckpoint: true },
+  { playerPos: { x: 6, y: 2 }, aiPos: { x: 10, y: 3 }, highlight: 'player', showCheckpoint: true },
 ];
 
 function IntroAnimation({ onComplete }: IntroAnimationProps) {
@@ -84,6 +85,35 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
   const [showStartButton, setShowStartButton] = useState(false);
 
   const currentFrame = DEMO_FRAMES[frameIndex];
+
+  // Build history arrays from all frames up to current
+  const playerHistory = useMemo(() => {
+    const history: { x: number; y: number }[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i <= frameIndex; i++) {
+      const pos = DEMO_FRAMES[i].playerPos;
+      const key = `${pos.x},${pos.y}`;
+      if (!seen.has(key)) {
+        history.push(pos);
+        seen.add(key);
+      }
+    }
+    return history;
+  }, [frameIndex]);
+
+  const aiHistory = useMemo(() => {
+    const history: { x: number; y: number }[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i <= frameIndex; i++) {
+      const pos = DEMO_FRAMES[i].aiPos;
+      const key = `${pos.x},${pos.y}`;
+      if (!seen.has(key)) {
+        history.push(pos);
+        seen.add(key);
+      }
+    }
+    return history;
+  }, [frameIndex]);
 
   // Auto-advance frames
   useEffect(() => {
@@ -95,10 +125,25 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
 
     const timer = setTimeout(() => {
       setFrameIndex(prev => prev + 1);
-    }, 800); // 800ms per frame
+    }, 700); // 700ms per frame
 
     return () => clearTimeout(timer);
   }, [frameIndex]);
+
+  // Check if position is in history (not current position)
+  const isInPlayerHistory = useCallback((x: number, y: number) => {
+    return playerHistory.some((pos, idx) => 
+      pos.x === x && pos.y === y && 
+      idx < playerHistory.length - 1 // Not the current position
+    );
+  }, [playerHistory]);
+
+  const isInAiHistory = useCallback((x: number, y: number) => {
+    return aiHistory.some((pos, idx) => 
+      pos.x === x && pos.y === y && 
+      idx < aiHistory.length - 1 // Not the current position
+    );
+  }, [aiHistory]);
 
   // Render demo track cell
   const renderCell = useCallback((x: number, y: number) => {
@@ -109,6 +154,8 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
     const isPlayer = currentFrame.playerPos.x === x && currentFrame.playerPos.y === y;
     const isAi = currentFrame.aiPos.x === x && currentFrame.aiPos.y === y;
     const isValidMove = currentFrame.validMoves?.some(m => m.x === x && m.y === y);
+    const inPlayerHist = isInPlayerHistory(x, y);
+    const inAiHist = isInAiHistory(x, y);
     
     if (isPlayer) {
       content = '🚙';
@@ -127,12 +174,21 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
         `}
       >
         {content}
+        
+        {/* History markers */}
+        {inPlayerHist && !isAi && (
+          <span className="absolute text-xs opacity-40">🚙</span>
+        )}
+        {inAiHist && !isPlayer && (
+          <span className="absolute text-xs opacity-40">🚗</span>
+        )}
+        
         {isValidMove && currentFrame.highlight === 'moves' && (
           <span className="absolute text-sm animate-pulse">🔴</span>
         )}
       </div>
     );
-  }, [currentFrame]);
+  }, [currentFrame, isInPlayerHistory, isInAiHistory]);
 
   // Generate all cells
   const cells = [];
@@ -141,6 +197,15 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
       cells.push(renderCell(x, y));
     }
   }
+
+  // Calculate SVG path points for history lines
+  const cellSize = 32; // Approximate cell size
+  const playerPathPoints = playerHistory
+    .map(pos => `${pos.x * cellSize + cellSize/2},${pos.y * cellSize + cellSize/2}`)
+    .join(' ');
+  const aiPathPoints = aiHistory
+    .map(pos => `${pos.x * cellSize + cellSize/2},${pos.y * cellSize + cellSize/2}`)
+    .join(' ');
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -153,12 +218,50 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
           <span className={currentFrame.highlight === 'ai' ? 'animate-bounce' : ''}>🚗</span>
         </div>
 
-        {/* Track grid */}
-        <div 
-          className="grid gap-0 bg-black/30 rounded-lg p-2"
-          style={{ gridTemplateColumns: `repeat(${DEMO_TRACK[0].length}, 1fr)` }}
-        >
-          {cells}
+        {/* Track grid with history overlay */}
+        <div className="relative">
+          {/* SVG layer for history lines */}
+          <svg 
+            className="absolute top-0 left-0 pointer-events-none"
+            style={{ 
+              width: DEMO_TRACK[0].length * cellSize + 16, 
+              height: DEMO_TRACK.length * cellSize + 16,
+              zIndex: 4,
+              left: 8,
+              top: 8,
+            }}
+          >
+            {/* Player history line */}
+            {playerHistory.length > 1 && (
+              <polyline
+                fill="none"
+                stroke="rgba(59, 130, 246, 0.5)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={playerPathPoints}
+              />
+            )}
+            
+            {/* AI history line */}
+            {aiHistory.length > 1 && (
+              <polyline
+                fill="none"
+                stroke="rgba(239, 68, 68, 0.5)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={aiPathPoints}
+              />
+            )}
+          </svg>
+
+          <div 
+            className="grid gap-0 bg-black/30 rounded-lg p-2"
+            style={{ gridTemplateColumns: `repeat(${DEMO_TRACK[0].length}, 1fr)` }}
+          >
+            {cells}
+          </div>
         </div>
 
         {/* Turn indicator */}
@@ -202,4 +305,3 @@ function IntroAnimation({ onComplete }: IntroAnimationProps) {
 }
 
 export default IntroAnimation;
-
