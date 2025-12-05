@@ -2,7 +2,7 @@
  * Track Component - Renders the race track with all layers
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { GameState, Move } from '../types';
 
 interface TrackProps {
@@ -13,6 +13,25 @@ interface TrackProps {
 }
 
 function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [cellSize, setCellSize] = useState(28);
+
+  // Measure actual cell size from the DOM
+  useEffect(() => {
+    const measureCellSize = () => {
+      if (gridRef.current) {
+        const gridWidth = gridRef.current.offsetWidth;
+        const newCellSize = gridWidth / 24;
+        setCellSize(newCellSize);
+        console.log('[TRACK] Measured cell size:', newCellSize);
+      }
+    };
+
+    measureCellSize();
+    window.addEventListener('resize', measureCellSize);
+    return () => window.removeEventListener('resize', measureCellSize);
+  }, []);
+
   // Create a map of valid move positions for quick lookup
   const validMoveMap = useMemo(() => {
     const map = new Map<string, Move>();
@@ -38,6 +57,19 @@ function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps
     });
     return set;
   }, [gameState.history.ai]);
+
+  // Generate SVG path points for history
+  const playerHistoryPoints = useMemo(() => {
+    return gameState.history.player
+      .map(pos => `${pos.x * cellSize + cellSize/2},${pos.y * cellSize + cellSize/2}`)
+      .join(' ');
+  }, [gameState.history.player, cellSize]);
+
+  const aiHistoryPoints = useMemo(() => {
+    return gameState.history.ai
+      .map(pos => `${pos.x * cellSize + cellSize/2},${pos.y * cellSize + cellSize/2}`)
+      .join(' ');
+  }, [gameState.history.ai, cellSize]);
 
   // Render a cell
   const renderCell = (x: number, y: number) => {
@@ -70,12 +102,12 @@ function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps
 
         {/* History layer - show faded car trail */}
         {inPlayerHistory && !isAiPos && (
-          <span className="history-marker text-blue-400" style={{ opacity: 0.3 }}>
+          <span className="history-marker text-blue-400" style={{ opacity: 0.4 }}>
             🚙
           </span>
         )}
         {inAiHistory && !isPlayerPos && (
-          <span className="history-marker text-red-400" style={{ opacity: 0.3 }}>
+          <span className="history-marker text-red-400" style={{ opacity: 0.4 }}>
             🚗
           </span>
         )}
@@ -104,16 +136,16 @@ function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, validMoveMap, isPlayerTurn]);
+  }, [gameState, validMoveMap, isPlayerTurn, playerHistorySet, aiHistorySet]);
 
   return (
     <div className="relative">
       {/* SVG layer for history lines */}
       <svg 
-        className="absolute top-0 left-0 w-full h-full pointer-events-none"
+        className="absolute top-0 left-0 pointer-events-none"
         style={{ 
-          width: 'calc(var(--cell-size) * 24)', 
-          height: 'calc(var(--cell-size) * 24)',
+          width: cellSize * 24, 
+          height: cellSize * 24,
           zIndex: 4 
         }}
       >
@@ -121,16 +153,11 @@ function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps
         {gameState.history.player.length > 1 && (
           <polyline
             fill="none"
-            stroke="rgba(59, 130, 246, 0.5)"
-            strokeWidth="3"
+            stroke="rgba(59, 130, 246, 0.6)"
+            strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
-            points={gameState.history.player
-              .map(pos => {
-                const cellSize = 28; // Base cell size, will be scaled by CSS
-                return `${pos.x * cellSize + cellSize/2},${pos.y * cellSize + cellSize/2}`;
-              })
-              .join(' ')}
+            points={playerHistoryPoints}
           />
         )}
         
@@ -138,22 +165,17 @@ function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps
         {gameState.history.ai.length > 1 && (
           <polyline
             fill="none"
-            stroke="rgba(239, 68, 68, 0.5)"
-            strokeWidth="3"
+            stroke="rgba(239, 68, 68, 0.6)"
+            strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
-            points={gameState.history.ai
-              .map(pos => {
-                const cellSize = 28;
-                return `${pos.x * cellSize + cellSize/2},${pos.y * cellSize + cellSize/2}`;
-              })
-              .join(' ')}
+            points={aiHistoryPoints}
           />
         )}
       </svg>
 
       {/* Grid layer */}
-      <div className="track-grid">
+      <div ref={gridRef} className="track-grid">
         {cells}
       </div>
     </div>
@@ -161,4 +183,3 @@ function Track({ gameState, validMoves, onMoveSelect, isPlayerTurn }: TrackProps
 }
 
 export default Track;
-
