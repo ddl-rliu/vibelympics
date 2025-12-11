@@ -13,6 +13,16 @@ Race your blue car 🚙 against an AI opponent 🚗 around an emoji track.
 - **Momentum-based movement**: Your velocity carries over each turn. Plan your moves carefully!
 - **Penalties**: Go off-track onto grass 🟩 or hit the audience 😃→💀 and you'll skip a turn
 
+## Project 2
+
+**A stunning package vulnerability auditor with 3D visualization.**
+
+Flaming Hot Auditor transforms package vulnerability data into an engaging 3D experience.
+
+- **Animated Flames**: Fire intensity corresponds to vulnerability severity (Critical > High > Moderate > Low)
+- **Malicious Package Detection**: Red background and warning for typosquatting/malicious packages
+- **Multi-Ecosystem Support**: PyPI, npm, Maven, and Go packages
+
 ## Entering the Competition
 
 To register for the competition, follow these steps:

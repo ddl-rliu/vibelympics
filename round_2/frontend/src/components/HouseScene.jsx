@@ -341,7 +341,7 @@ function House({ position, color, version, vulns, onClick, isSelected, isMalicio
       {/* Version label in front of the house on the ground */}
       <Text
         position={[0, 0.02, 0.6]}
-        fontSize={0.12}
+        fontSize={0.24}
         color={isSelected ? '#f97316' : '#374151'}
         anchorX="center"
         anchorY="bottom"
