@@ -11,6 +11,7 @@ function App() {
   const [viewingHouse, setViewingHouse] = useState(false)
   const [fadeOut, setFadeOut] = useState(false)
   const [initialSearchDone, setInitialSearchDone] = useState(false)
+  const [autoViewDetails, setAutoViewDetails] = useState(false)
 
   const handleSearch = useCallback(async (searchParams) => {
     console.log('Searching for package:', searchParams)
@@ -72,6 +73,7 @@ function App() {
   }, [])
 
   // Auto-search from URL params on load (for testing and demo)
+  // Supports: ?package=name&ecosystem=PyPI&version=1.0.0&view=details
   useEffect(() => {
     if (initialSearchDone) return
     
@@ -79,10 +81,20 @@ function App() {
     const packageName = urlParams.get('package')
     const ecosystem = urlParams.get('ecosystem') || 'PyPI'
     const version = urlParams.get('version')
+    const view = urlParams.get('view')
     
     if (packageName) {
-      console.log('Auto-searching from URL params:', { ecosystem, packageName, version })
+      console.log('Auto-searching from URL params:', { ecosystem, packageName, version, view })
       setInitialSearchDone(true)
+      
+      // If view=details, set flag to auto-navigate after data loads
+      if (view === 'details') {
+        setAutoViewDetails(true)
+        if (version) {
+          setSelectedVersion(version)
+        }
+      }
+      
       handleSearch({
         ecosystem,
         name: packageName,
@@ -90,6 +102,14 @@ function App() {
       })
     }
   }, [initialSearchDone, handleSearch])
+
+  // Auto-navigate to details view after data loads if requested
+  useEffect(() => {
+    if (autoViewDetails && auditData && !loading && selectedVersion) {
+      setViewingHouse(true)
+      setAutoViewDetails(false)
+    }
+  }, [autoViewDetails, auditData, loading, selectedVersion])
 
   return (
     <div className="min-h-screen flex flex-col">
