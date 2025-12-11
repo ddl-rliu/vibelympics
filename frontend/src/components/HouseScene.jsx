@@ -254,16 +254,16 @@ function House({ position, color, version, vulns, onClick, isSelected, isMalicio
         <meshBasicMaterial color="#1a1a1a" wireframe />
       </mesh>
 
-      {/* Door */}
-      <mesh position={[0, 0.2, 0.26]}>
-        <boxGeometry args={[0.18, 0.35, 0.02]} />
-        <meshStandardMaterial color="#5c3317" />
+      {/* Door - made transparent to not overlap face */}
+      <mesh position={[0, 0.12, 0.26]}>
+        <boxGeometry args={[0.15, 0.22, 0.02]} />
+        <meshStandardMaterial color="#5c3317" transparent opacity={0.3} />
       </mesh>
 
-      {/* Door handle */}
-      <mesh position={[0.05, 0.2, 0.28]}>
-        <sphereGeometry args={[0.015, 8, 8]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
+      {/* Door handle - subtle */}
+      <mesh position={[0.04, 0.12, 0.28]}>
+        <sphereGeometry args={[0.012, 8, 8]} />
+        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} transparent opacity={0.4} />
       </mesh>
 
       {/* Face on front of house */}
@@ -386,14 +386,28 @@ CameraController.propTypes = {
   totalVersions: PropTypes.number.isRequired,
 }
 
+// Check if a version looks like a commit hash (hex string without dots)
+function isCommitHash(version) {
+  if (!version || typeof version !== 'string') return false
+  // Commit hashes are hex strings (a-f, 0-9), typically 7-40 chars, no dots or other punctuation
+  // Real versions typically have dots like "1.0.0", "2.3.4"
+  if (version.includes('.')) return false
+  if (version.length < 6) return false
+  // Check if it's mostly hex characters
+  const hexPattern = /^[a-f0-9]+$/i
+  return hexPattern.test(version)
+}
+
 // Main scene component
 function Scene({ auditData, selectedVersion, onHouseClick, scrollOffset }) {
-  // Get versions to display
+  // Get versions to display - filter out commit hashes
   const versions = useMemo(() => {
     if (!auditData?.versions || auditData.versions.length === 0) {
       return [selectedVersion || '1.0.0']
     }
-    return auditData.versions
+    // Filter out versions that look like commit hashes
+    const filtered = auditData.versions.filter(v => !isCommitHash(v))
+    return filtered.length > 0 ? filtered : auditData.versions
   }, [auditData, selectedVersion])
 
   // Get vulnerabilities for a specific version
@@ -463,7 +477,13 @@ function HouseScene({ auditData, selectedVersion, onHouseClick }) {
   const [scrollOffset, setScrollOffset] = useState(0)
   const containerRef = useRef()
 
-  const versions = auditData?.versions || []
+  // Filter out commit hashes from versions
+  const versions = useMemo(() => {
+    const allVersions = auditData?.versions || []
+    const filtered = allVersions.filter(v => !isCommitHash(v))
+    return filtered.length > 0 ? filtered : allVersions
+  }, [auditData])
+  
   const maxScroll = Math.max(0, (versions.length - 1) * 1.5)
 
   // Find selected version index and set initial scroll

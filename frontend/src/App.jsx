@@ -113,18 +113,20 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#FAFBFD' }}>
-      {/* Header */}
-      <header className="bg-gradient-to-r from-red-600 via-orange-500 to-yellow-400 py-4 px-6 shadow-lg">
-        <h1 className="text-3xl md:text-4xl font-display text-white text-center drop-shadow-lg tracking-wide">
-          🏠 Flaming Hot Auditor 🔥
-        </h1>
-        <p className="text-center text-white/90 text-sm mt-1 font-body">
-          Package vulnerability detection with style
-        </p>
-      </header>
+      {/* Header - hidden when viewing house interior */}
+      {!viewingHouse && (
+        <header className="bg-gradient-to-r from-red-600 via-orange-500 to-yellow-400 py-4 px-6 shadow-lg">
+          <h1 className="text-3xl md:text-4xl font-display text-white text-center drop-shadow-lg tracking-wide">
+            🏠 Flaming Hot Auditor 🔥
+          </h1>
+          <p className="text-center text-white/90 text-sm mt-1 font-body">
+            Package vulnerability detection with style
+          </p>
+        </header>
+      )}
 
-      {/* Search Form */}
-      <SearchForm onSearch={handleSearch} loading={loading} />
+      {/* Search Form - hidden when viewing house interior */}
+      {!viewingHouse && <SearchForm onSearch={handleSearch} loading={loading} />}
 
       {/* Main Content Area */}
       <main className="flex-1 relative" style={{ backgroundColor: '#FAFBFD' }}>
