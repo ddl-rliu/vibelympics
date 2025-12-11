@@ -1,0 +1,168 @@
+[33mcommit df3473967c6452d1b34d38ff9dad5770a3fcdfe0[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 20:43:29 2025 -0800
+
+    fix: Remove house hover scaling, zoom in camera, reposition version labels
+    
+    - Removed useFrame scaling effect on house hover (houses no longer change size)
+    - Zoomed in camera from position [0, 2, 6] to [0, 1.5, 3.5] with fov 50
+    - Camera now looks at y=0.3 instead of y=0.5 for better house visibility
+    - Version labels repositioned from y=-0.15 to lying flat on the ground (z=0.6)
+    - Labels rotated -90 degrees on X axis to lie flat
+    - Increased font size from 0.1 to 0.12 for better readability
+    - Houses now appear larger and more prominent in the view
+
+[33mcommit 1677424059992bab2ea01895f87f0115e8604704[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 20:35:05 2025 -0800
+
+    fix: Floor extension, fire positioning with noise, SNYK link, post-it hover bug
+    
+    Package Overview Fixes:
+    - Fixed floor disappearing when scrolling to right: Ground plane now centered and sized based on total house width
+    - Added noise to fire x/y positions using seeded random for visual interest
+    - Added transparency to flame layers (0.7-0.95 opacity)
+    - Fire sizes now range from 0.5x to 2x based on severity (LOW=0.5x, MODERATE=1x, HIGH=1.5x, CRITICAL=2x)
+    - Fires overflow to floor when 5+ vulnerabilities (max 4 on roof, rest around house on floor)
+    
+    Version Overview Fixes:
+    - Added SNYK link to header - clicking package name opens Snyk security page for that version
+    - Fixed text disappearing on post-it hover: Moved entire group forward on hover instead of just mesh
+    - Text z-positions now properly layered in front of the mesh
+    - Used seeded random for consistent post-it rotations
+
+[33mcommit 2acd3a045bb7350aab05cb361495ea54019ce29a[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 20:23:56 2025 -0800
+
+    fix: Address UI issues - door transparency, version filtering, search UI hiding, camera positioning
+    
+    - Made door transparent (opacity 0.3) so it doesn't overlap house face
+    - Filter out auxiliary packages with commit hash names (hex strings without dots)
+    - Hide search UI (header + form) when viewing vulnerability details inside house
+    - Moved camera closer to post-it notes wall for better readability
+    - Post-it notes now larger (1.8x1.4) with bigger text
+    - Added vertical scrolling for vulnerability lists with 20+ items
+    - 3-column layout for post-it notes instead of 4 for better use of space
+    - Scroll controls only shown when there are 6+ vulnerabilities
+    - urllib3 now shows 104 proper semver versions instead of 112 with hashes
+
+[33mcommit db2249745cf7e9c4fe7b69a268ef55d14500f065[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 20:13:20 2025 -0800
+
+    fix: Address UI issues - horizontal houses, version labels, fire overlap, scrolling, backgrounds, 3D vulnerability view
+    
+    - Houses now arranged in horizontal line with version labels underneath
+    - Fires spaced properly on roof to prevent overlap (max 5 fires per house)
+    - Implemented proper horizontal scrolling with camera controller and slider
+    - Changed background color to light gray #FAFBFD per requirements
+    - Malicious package view now has red background with distant fires and sign in front of house
+    - Vulnerability detail view is now fully 3D inside house with post-it notes on wall
+    - Side walls shown partially/cutoff as per spec
+    - Post-it notes display severity badges, CVE IDs, summaries, and version info
+    - Updated SearchForm and App styling for light theme
+
+[33mcommit 9ff43cbd6d4f013867b72eab7922a02f6ba91388[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 19:59:06 2025 -0800
+
+    Phase 4: Polish - Final documentation and README update
+    
+    Complete project documentation:
+    - Comprehensive README with usage guide
+    - API reference documentation
+    - Testing instructions with test packages
+    - Architecture overview
+    - Design system documentation
+    - Troubleshooting guide
+    - Definition of Done checklist
+    
+    All phases complete:
+    ✅ Phase 0: Docker foundation with Chainguard images
+    ✅ Phase 1: 3D house visualization with Three.js
+    ✅ Phase 2: Backend API with OSV integration
+    ✅ Phase 3: Frontend-backend integration with animations
+    ✅ Phase 4: Polish and documentation
+
+[33mcommit 6ca44dc7b10799153480a28df8ec6f29c9f9a4da[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 19:58:05 2025 -0800
+
+    Phase 3 complete: Full frontend-backend integration with vulnerability details
+    
+    New Features:
+    - VulnerabilityView with post-it notes showing CVE details
+    - Post-it notes in pastel colors with severity badges
+    - Reference links to NVD, GitHub advisories
+    - 'Back to Houses' button with fade-out transition
+    - URL parameters for testing: ?package=name&version=x&view=details
+    - Auto-navigate to detail view from URL
+    
+    Fixes:
+    - Fixed malicious package detection false positives
+    - Only check MAL- prefix, source, and specific summary patterns
+    - Removed overly broad 'malicious' keyword search
+
+[33mcommit d19b3821e28e3d94b159b5fe08f17bdf9a16678f[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 19:55:07 2025 -0800
+
+    Phase 1-3: 3D house visualization and full frontend-backend integration
+    
+    Completed features:
+    - 3D houses with pastel colors representing package versions
+    - Animated fire effects for vulnerabilities (size/intensity based on severity)
+    - Faces on houses (happy/grim/horrified based on vuln count)
+    - Malicious package detection with red background and warning banner
+    - Background fires for malicious packages
+    - URL parameter support (?package=name) for auto-search
+    - Fixed malicious detection to avoid false positives
+    
+    3D Visualization:
+    - Houses rendered with Three.js and @react-three/fiber
+    - OrbitControls for navigation (scroll/drag)
+    - Version labels on each house
+    - Fire tooltips showing CVE info on hover
+    
+    Tested packages:
+    - flask: Multiple houses with fires (59 versions)
+    - urllib3: Many versions (112), no false malicious flag
+    - controlurl: Correctly shows malicious package warning
+
+[33mcommit 7e291179ee8f2c4ac2e518964d5c4b72fc147305[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 19:46:33 2025 -0800
+
+    Phase 0-2: Docker setup complete + Backend API with OSV integration
+    
+    - Fixed Dockerfile ENTRYPOINT issues for Chainguard images
+    - Backend successfully queries OSV API for package vulnerabilities
+    - Malicious package detection working (MAL- prefix, summary/details check)
+    - Tested with urllib3 (many vulnerabilities) and controlurl (malicious)
+    - Hot-reload working for both containers
+    
+    Backend endpoints:
+    - GET /health - Health check
+    - POST /api/audit - Query package vulnerabilities
+    
+    Next: Test and polish the 3D frontend visualization
+
+[33mcommit 7f2fc8163a20da8c4bab358d5d55ad73eaad8cbf[m
+Author: ddl-rliu <richard.liu@dominodatalab.com>
+Date:   Wed Dec 10 19:35:08 2025 -0800
+
+    Phase 0: Foundation - Docker setup with Flask backend and React frontend
+    
+    - Created Flask backend with health endpoint and OSV API integration
+    - Created React frontend with Vite, Three.js, and TailwindCSS
+    - Set up docker-compose with Chainguard base images
+    - Configured hot-reload for both frontend and backend
+    - Added Makefile with standard development commands
+    - Created comprehensive README with usage instructions
+    
+    Technical decisions:
+    - Using uv for Python dependency management
+    - Using Chainguard images (python:latest-dev, node:latest-dev)
+    - Volume mounts for hot-reload in development
+    - Vite proxy configuration for API calls to backend
