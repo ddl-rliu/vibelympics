@@ -85,31 +85,64 @@ def audit_package():
         malicious_details = None
         
         for vuln in vulnerabilities:
-            # Check for malicious package indicators
-            database_specific = vuln.get('database_specific', {})
-            source = database_specific.get('source')
+            vuln_id = vuln.get('id', '')
+            summary = vuln.get('summary', '')
+            details = vuln.get('details', '')
             
-            # Check if source indicates malicious-packages-origins
+            # Check for malicious package indicators:
+            # 1. ID starts with "MAL-" (OSV malicious package prefix)
+            # 2. Summary or details contain "malicious"
+            # 3. Source indicates malicious-packages-origins
+            
+            if vuln_id.startswith('MAL-'):
+                is_malicious = True
+                malicious_details = {
+                    "id": vuln_id,
+                    "summary": summary or 'Malicious package detected',
+                    "details": details
+                }
+                logger.warning(f"Malicious package detected via MAL- prefix: {vuln_id}")
+                break
+            
+            if 'malicious' in summary.lower() or 'malicious' in details.lower():
+                is_malicious = True
+                malicious_details = {
+                    "id": vuln_id,
+                    "summary": summary or 'Malicious package detected',
+                    "details": details
+                }
+                logger.warning(f"Malicious package detected via summary/details: {vuln_id}")
+                break
+            
+            # Check database_specific source
+            database_specific = vuln.get('database_specific', {})
+            source = database_specific.get('source', '')
+            
             if source and 'malicious-packages' in source.lower():
                 is_malicious = True
                 malicious_details = {
-                    "id": vuln.get('id'),
-                    "summary": vuln.get('summary', 'Malicious package detected'),
-                    "details": vuln.get('details', '')
+                    "id": vuln_id,
+                    "summary": summary or 'Malicious package detected',
+                    "details": details
                 }
+                logger.warning(f"Malicious package detected via source: {vuln_id}")
                 break
             
-            # Also check credits for malicious package indicators
+            # Check credits for malicious package indicators (e.g., Checkmarx)
             credits = vuln.get('credits', [])
             for credit in credits:
-                if 'malicious' in credit.get('name', '').lower():
+                contact = credit.get('contact', [])
+                if any('malicious' in str(c).lower() for c in contact):
                     is_malicious = True
                     malicious_details = {
-                        "id": vuln.get('id'),
-                        "summary": vuln.get('summary', 'Malicious package detected'),
-                        "details": vuln.get('details', '')
+                        "id": vuln_id,
+                        "summary": summary or 'Malicious package detected',
+                        "details": details
                     }
+                    logger.warning(f"Malicious package detected via credits: {vuln_id}")
                     break
+            if is_malicious:
+                break
         
         # Extract all affected versions from vulnerabilities
         versions_set = set()
