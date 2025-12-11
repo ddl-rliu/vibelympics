@@ -1,6 +1,6 @@
-import { useRef, useMemo, useState, useEffect } from 'react'
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Text, Html } from '@react-three/drei'
+import { Text, Html } from '@react-three/drei'
 import PropTypes from 'prop-types'
 import * as THREE from 'three'
 
@@ -18,48 +18,49 @@ function getSeverityColor(severity) {
   }
 }
 
-// Fire component - animated flames
-function Fire({ position, intensity = 1, severity, vulnInfo, onHover }) {
+// Individual Fire component - positioned to not overlap
+function Fire({ position, intensity = 1, severity, vulnInfo }) {
   const meshRef = useRef()
   const [hovered, setHovered] = useState(false)
   
   // Animate flame
   useFrame((state) => {
     if (meshRef.current) {
-      meshRef.current.scale.y = 1 + Math.sin(state.clock.elapsedTime * 8 + position[0]) * 0.15
-      meshRef.current.scale.x = 1 + Math.sin(state.clock.elapsedTime * 6 + position[0] * 2) * 0.1
-      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 5) * 0.02
+      const time = state.clock.elapsedTime
+      meshRef.current.scale.y = 1 + Math.sin(time * 8 + position[0]) * 0.15
+      meshRef.current.scale.x = 1 + Math.sin(time * 6 + position[0] * 2) * 0.1
     }
   })
 
-  const flameSize = 0.15 + intensity * 0.2
-  const flameHeight = 0.3 + intensity * 0.4
+  // Size based on severity
+  const flameSize = 0.08 + intensity * 0.12
+  const flameHeight = 0.2 + intensity * 0.3
 
   return (
     <group position={position}>
-      {/* Outer red glow */}
-      <mesh ref={meshRef}>
-        <coneGeometry args={[flameSize + 0.1, flameHeight + 0.15, 8]} />
-        <meshBasicMaterial color="#dc2626" transparent opacity={0.6} />
+      {/* Black outline */}
+      <mesh position={[0, 0, -0.01]}>
+        <coneGeometry args={[flameSize + 0.04, flameHeight + 0.08, 8]} />
+        <meshBasicMaterial color="#000000" />
+      </mesh>
+      
+      {/* Outer red */}
+      <mesh>
+        <coneGeometry args={[flameSize + 0.03, flameHeight + 0.06, 8]} />
+        <meshBasicMaterial color="#dc2626" />
       </mesh>
       
       {/* Orange layer */}
-      <mesh position={[0, 0.02, 0]}>
-        <coneGeometry args={[flameSize + 0.05, flameHeight + 0.05, 8]} />
-        <meshBasicMaterial color="#f97316" transparent opacity={0.8} />
+      <mesh ref={meshRef} position={[0, 0.01, 0]}>
+        <coneGeometry args={[flameSize + 0.015, flameHeight + 0.02, 8]} />
+        <meshBasicMaterial color="#f97316" />
       </mesh>
       
       {/* Yellow core */}
       <mesh 
-        position={[0, 0.04, 0]}
-        onPointerOver={() => {
-          setHovered(true)
-          onHover && onHover(vulnInfo)
-        }}
-        onPointerOut={() => {
-          setHovered(false)
-          onHover && onHover(null)
-        }}
+        position={[0, 0.02, 0]}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
       >
         <coneGeometry args={[flameSize, flameHeight, 8]} />
         <meshBasicMaterial color="#fef08a" />
@@ -67,21 +68,18 @@ function Fire({ position, intensity = 1, severity, vulnInfo, onHover }) {
 
       {/* Tooltip on hover */}
       {hovered && vulnInfo && (
-        <Html position={[0, flameHeight + 0.3, 0]} center>
-          <div className="bg-gray-900/95 text-white p-3 rounded-lg shadow-xl min-w-[200px] max-w-[300px] pointer-events-none">
+        <Html position={[0, flameHeight + 0.2, 0]} center>
+          <div className="bg-gray-900/95 text-white p-2 rounded shadow-xl min-w-[180px] max-w-[250px] pointer-events-none text-xs">
             <div className="flex items-center gap-2 mb-1">
               <span 
-                className="px-2 py-0.5 rounded text-xs font-bold"
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
                 style={{ backgroundColor: getSeverityColor(severity) }}
               >
                 {severity || 'UNKNOWN'}
               </span>
-              {vulnInfo.score && (
-                <span className="text-xs text-white/70">Score: {vulnInfo.score}</span>
-              )}
             </div>
-            <p className="text-xs font-mono text-orange-300">{vulnInfo.id}</p>
-            <p className="text-xs mt-1 text-white/80 line-clamp-2">{vulnInfo.summary}</p>
+            <p className="font-mono text-orange-300 text-[10px]">{vulnInfo.id}</p>
+            <p className="mt-1 text-white/80 line-clamp-2">{vulnInfo.summary}</p>
           </div>
         </Html>
       )}
@@ -94,45 +92,44 @@ Fire.propTypes = {
   intensity: PropTypes.number,
   severity: PropTypes.string,
   vulnInfo: PropTypes.object,
-  onHover: PropTypes.func,
 }
 
 // Face component for house
 function HouseFace({ vulnCount, position }) {
-  const eyeRadius = 0.08
-  const eyeDistance = 0.2
+  const eyeRadius = 0.06
+  const eyeDistance = 0.15
 
   return (
     <group position={position}>
       {/* Left eye */}
-      <mesh position={[-eyeDistance, 0.1, 0.01]}>
+      <mesh position={[-eyeDistance, 0.08, 0.01]}>
         <circleGeometry args={[eyeRadius, 16]} />
         <meshBasicMaterial color="#1a1a1a" />
       </mesh>
       
       {/* Right eye */}
-      <mesh position={[eyeDistance, 0.1, 0.01]}>
+      <mesh position={[eyeDistance, 0.08, 0.01]}>
         <circleGeometry args={[eyeRadius, 16]} />
         <meshBasicMaterial color="#1a1a1a" />
       </mesh>
 
       {/* Mouth based on vulnerability count */}
       {vulnCount === 0 ? (
-        // Happy smile - arc
-        <mesh position={[0, -0.15, 0.01]} rotation={[0, 0, Math.PI]}>
-          <torusGeometry args={[0.12, 0.03, 8, 16, Math.PI]} />
+        // Happy smile
+        <mesh position={[0, -0.1, 0.01]} rotation={[0, 0, Math.PI]}>
+          <torusGeometry args={[0.1, 0.02, 8, 16, Math.PI]} />
           <meshBasicMaterial color="#1a1a1a" />
         </mesh>
       ) : vulnCount <= 2 ? (
-        // Grim - flat line
-        <mesh position={[0, -0.15, 0.01]}>
-          <boxGeometry args={[0.25, 0.04, 0.01]} />
+        // Grim flat line
+        <mesh position={[0, -0.1, 0.01]}>
+          <boxGeometry args={[0.2, 0.03, 0.01]} />
           <meshBasicMaterial color="#1a1a1a" />
         </mesh>
       ) : (
-        // Horrified - open scream
-        <mesh position={[0, -0.18, 0.01]}>
-          <circleGeometry args={[0.12, 16]} />
+        // Horrified open mouth
+        <mesh position={[0, -0.12, 0.01]}>
+          <circleGeometry args={[0.08, 16]} />
           <meshBasicMaterial color="#1a1a1a" />
         </mesh>
       )}
@@ -145,30 +142,66 @@ HouseFace.propTypes = {
   position: PropTypes.array.isRequired,
 }
 
+// Malicious sign component
+function MaliciousSign({ summary }) {
+  return (
+    <group position={[0, 0.15, 0.5]}>
+      {/* Sign post */}
+      <mesh position={[0, -0.15, 0]}>
+        <boxGeometry args={[0.04, 0.3, 0.04]} />
+        <meshStandardMaterial color="#5c3317" />
+      </mesh>
+      
+      {/* Sign board */}
+      <mesh position={[0, 0.1, 0]}>
+        <boxGeometry args={[0.6, 0.25, 0.03]} />
+        <meshStandardMaterial color="#dc2626" />
+      </mesh>
+      
+      {/* Sign text */}
+      <Text
+        position={[0, 0.1, 0.02]}
+        fontSize={0.04}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={0.55}
+        textAlign="center"
+        fontWeight="bold"
+      >
+        {summary?.substring(0, 50) || 'MALICIOUS'}
+      </Text>
+    </group>
+  )
+}
+
+MaliciousSign.propTypes = {
+  summary: PropTypes.string,
+}
+
 // Single house component
-function House({ position, color, version, vulns, onClick, isSelected }) {
+function House({ position, color, version, vulns, onClick, isSelected, isMalicious, maliciousSummary }) {
   const groupRef = useRef()
   const [hovered, setHovered] = useState(false)
   
-  // Animate on hover
   useFrame(() => {
     if (groupRef.current) {
-      const targetScale = hovered ? 1.05 : 1
+      const targetScale = hovered ? 1.08 : 1
       groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1)
     }
   })
 
   const vulnCount = vulns.length
 
-  // Calculate fire positions based on vulnerabilities
+  // Position fires in a row on the roof - spaced apart to not overlap
   const fires = useMemo(() => {
-    return vulns.slice(0, 5).map((vuln, i) => {
-      const angle = (i / Math.min(vulns.length, 5)) * Math.PI * 0.6 - Math.PI * 0.3
-      const radius = 0.3
-      const x = Math.sin(angle) * radius
-      const z = Math.cos(angle) * radius * 0.5
+    const maxFires = Math.min(vulns.length, 5)
+    return vulns.slice(0, maxFires).map((vuln, i) => {
+      // Space fires evenly across the roof
+      const spacing = 0.25
+      const startX = -((maxFires - 1) * spacing) / 2
+      const x = startX + i * spacing
       
-      // Determine intensity based on severity
       let intensity = 0.5
       switch (vuln.severity?.toUpperCase()) {
         case 'CRITICAL': intensity = 1; break
@@ -178,7 +211,7 @@ function House({ position, color, version, vulns, onClick, isSelected }) {
       }
 
       return {
-        position: [x, 0.8, z + 0.5],
+        position: [x, 1.1, 0],
         intensity,
         severity: vuln.severity,
         vulnInfo: vuln,
@@ -190,53 +223,53 @@ function House({ position, color, version, vulns, onClick, isSelected }) {
     <group 
       ref={groupRef} 
       position={position}
-      onClick={() => onClick && onClick(version)}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick && onClick(version)
+      }}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
       {/* House body */}
-      <mesh position={[0, 0.4, 0]}>
-        <boxGeometry args={[0.8, 0.8, 0.6]} />
-        <meshStandardMaterial 
-          color={color} 
-          roughness={0.8}
-        />
+      <mesh position={[0, 0.35, 0]}>
+        <boxGeometry args={[0.7, 0.7, 0.5]} />
+        <meshStandardMaterial color={color} />
       </mesh>
       
-      {/* Black outline effect - slightly larger box */}
-      <mesh position={[0, 0.4, 0]}>
-        <boxGeometry args={[0.82, 0.82, 0.62]} />
+      {/* Black outline */}
+      <mesh position={[0, 0.35, 0]}>
+        <boxGeometry args={[0.72, 0.72, 0.52]} />
         <meshBasicMaterial color="#1a1a1a" wireframe />
       </mesh>
 
       {/* Roof */}
-      <mesh position={[0, 0.95, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[0.65, 0.5, 4]} />
-        <meshStandardMaterial color="#8b4513" roughness={0.9} />
+      <mesh position={[0, 0.85, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[0.55, 0.4, 4]} />
+        <meshStandardMaterial color="#8b4513" />
       </mesh>
 
       {/* Roof outline */}
-      <mesh position={[0, 0.95, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[0.66, 0.51, 4]} />
+      <mesh position={[0, 0.85, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[0.56, 0.41, 4]} />
         <meshBasicMaterial color="#1a1a1a" wireframe />
       </mesh>
 
       {/* Door */}
-      <mesh position={[0, 0.25, 0.31]}>
-        <boxGeometry args={[0.2, 0.4, 0.02]} />
+      <mesh position={[0, 0.2, 0.26]}>
+        <boxGeometry args={[0.18, 0.35, 0.02]} />
         <meshStandardMaterial color="#5c3317" />
       </mesh>
 
       {/* Door handle */}
-      <mesh position={[0.06, 0.25, 0.33]}>
-        <sphereGeometry args={[0.02, 8, 8]} />
+      <mesh position={[0.05, 0.2, 0.28]}>
+        <sphereGeometry args={[0.015, 8, 8]} />
         <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
       </mesh>
 
       {/* Face on front of house */}
-      <HouseFace vulnCount={vulnCount} position={[0, 0.55, 0.31]} />
+      <HouseFace vulnCount={vulnCount} position={[0, 0.45, 0.26]} />
 
-      {/* Fires */}
+      {/* Fires on roof */}
       {fires.map((fire, i) => (
         <Fire 
           key={i} 
@@ -247,17 +280,20 @@ function House({ position, color, version, vulns, onClick, isSelected }) {
         />
       ))}
 
-      {/* Version label */}
+      {/* Malicious sign */}
+      {isMalicious && <MaliciousSign summary={maliciousSummary} />}
+
+      {/* Version label UNDER the house */}
       <Text
-        position={[0, -0.15, 0.5]}
-        fontSize={0.12}
-        color={isSelected ? '#fbbf24' : '#ffffff'}
+        position={[0, -0.15, 0]}
+        fontSize={0.1}
+        color={isSelected ? '#f97316' : '#374151'}
         anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.01}
-        outlineColor="#000000"
+        anchorY="top"
+        outlineWidth={0.005}
+        outlineColor="#ffffff"
       >
-        {version.length > 12 ? version.substring(0, 10) + '...' : version}
+        {version.length > 10 ? version.substring(0, 8) + '..' : version}
       </Text>
 
       {/* Click indicator */}
@@ -279,32 +315,18 @@ House.propTypes = {
   vulns: PropTypes.array.isRequired,
   onClick: PropTypes.func,
   isSelected: PropTypes.bool,
+  isMalicious: PropTypes.bool,
+  maliciousSummary: PropTypes.string,
 }
 
-// Camera controller to handle scrolling
-function CameraController({ targetX, versions }) {
-  const { camera } = useThree()
-  
-  useFrame(() => {
-    camera.position.x += (targetX - camera.position.x) * 0.05
-  })
-
-  return null
-}
-
-CameraController.propTypes = {
-  targetX: PropTypes.number.isRequired,
-  versions: PropTypes.array,
-}
-
-// Ground plane with grid
+// Ground plane
 function Ground({ isMalicious }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <planeGeometry args={[100, 10]} />
+      <planeGeometry args={[200, 20]} />
       <meshStandardMaterial 
-        color={isMalicious ? '#7f1d1d' : '#374151'} 
-        roughness={0.8}
+        color={isMalicious ? '#7f1d1d' : '#e5e7eb'} 
+        roughness={0.9}
       />
     </mesh>
   )
@@ -318,14 +340,14 @@ Ground.propTypes = {
 function BackgroundFires() {
   const fires = useMemo(() => {
     const result = []
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       result.push({
         position: [
-          (Math.random() - 0.5) * 40,
-          0.1,
-          -3 - Math.random() * 5,
+          (Math.random() - 0.5) * 60,
+          0.1 + Math.random() * 0.3,
+          -4 - Math.random() * 8,
         ],
-        intensity: 0.3 + Math.random() * 0.5,
+        intensity: 0.2 + Math.random() * 0.4,
       })
     }
     return result
@@ -345,91 +367,86 @@ function BackgroundFires() {
   )
 }
 
-// Main scene component
-function Scene({ auditData, selectedVersion, onHouseClick }) {
-  const [scrollOffset, setScrollOffset] = useState(0)
+// Camera controller for horizontal scrolling
+function CameraController({ scrollOffset, totalVersions }) {
+  const { camera } = useThree()
   
+  useFrame(() => {
+    // Move camera horizontally based on scroll
+    const targetX = scrollOffset
+    camera.position.x += (targetX - camera.position.x) * 0.08
+    camera.lookAt(camera.position.x, 0.5, 0)
+  })
+
+  return null
+}
+
+CameraController.propTypes = {
+  scrollOffset: PropTypes.number.isRequired,
+  totalVersions: PropTypes.number.isRequired,
+}
+
+// Main scene component
+function Scene({ auditData, selectedVersion, onHouseClick, scrollOffset }) {
   // Get versions to display
   const versions = useMemo(() => {
     if (!auditData?.versions || auditData.versions.length === 0) {
-      // If no versions from API, create a single version entry
       return [selectedVersion || '1.0.0']
     }
     return auditData.versions
   }, [auditData, selectedVersion])
 
-  // Find selected version index
-  const selectedIndex = useMemo(() => {
-    if (!selectedVersion) return versions.length - 1
-    const idx = versions.indexOf(selectedVersion)
-    return idx >= 0 ? idx : versions.length - 1
-  }, [versions, selectedVersion])
-
-  // Initial camera position based on selected version
-  useEffect(() => {
-    setScrollOffset(selectedIndex * 1.5)
-  }, [selectedIndex])
-
   // Get vulnerabilities for a specific version
-  const getVulnsForVersion = (version) => {
+  const getVulnsForVersion = useCallback((version) => {
     if (!auditData?.vulnerabilities) return []
     return auditData.vulnerabilities.filter(vuln => {
-      // Check if this version is in the affected versions
       if (vuln.affected_versions?.includes(version)) return true
-      // Or check if version is between introduced and fixed
       if (vuln.introduced && vuln.fixed) {
-        // Simple string comparison - not perfect but works for semver-like versions
         return version >= vuln.introduced && version < vuln.fixed
       }
       if (vuln.introduced && !vuln.fixed) {
         return version >= vuln.introduced
       }
-      // Default: include all vulns if we can't determine
       return true
     })
-  }
+  }, [auditData])
+
+  const isMalicious = auditData?.is_malicious
 
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow />
-      <pointLight position={[-5, 5, -5]} intensity={0.3} color="#ff6b6b" />
+      <ambientLight intensity={0.7} />
+      <directionalLight position={[5, 10, 5]} intensity={0.6} />
+      <directionalLight position={[-5, 5, -5]} intensity={0.3} />
 
       {/* Camera controller */}
-      <CameraController targetX={scrollOffset} versions={versions} />
+      <CameraController scrollOffset={scrollOffset} totalVersions={versions.length} />
 
       {/* Ground */}
-      <Ground isMalicious={auditData?.is_malicious} />
+      <Ground isMalicious={isMalicious} />
 
       {/* Background fires for malicious packages */}
-      {auditData?.is_malicious && <BackgroundFires />}
+      {isMalicious && <BackgroundFires />}
 
-      {/* Houses */}
+      {/* Houses in a horizontal line */}
       {versions.map((version, index) => {
         const vulns = getVulnsForVersion(version)
+        const spacing = 1.5 // Space between houses
         return (
           <House
-            key={version}
-            position={[index * 1.5, 0, 0]}
+            key={version + index}
+            position={[index * spacing, 0, 0]}
             color={HOUSE_COLORS[index % HOUSE_COLORS.length]}
             version={version}
             vulns={vulns}
             onClick={onHouseClick}
             isSelected={version === selectedVersion}
+            isMalicious={isMalicious}
+            maliciousSummary={isMalicious ? auditData?.malicious_details?.summary : null}
           />
         )
       })}
-
-      {/* Orbit controls for camera manipulation */}
-      <OrbitControls 
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        minDistance={2}
-        maxDistance={15}
-        maxPolarAngle={Math.PI / 2.2}
-      />
     </>
   )
 }
@@ -438,31 +455,63 @@ Scene.propTypes = {
   auditData: PropTypes.object,
   selectedVersion: PropTypes.string,
   onHouseClick: PropTypes.func,
+  scrollOffset: PropTypes.number.isRequired,
 }
 
 // Main exported component
 function HouseScene({ auditData, selectedVersion, onHouseClick }) {
-  const scrollContainerRef = useRef()
-  const [scrollPosition, setScrollPosition] = useState(0)
-
-  const handleScroll = (e) => {
-    setScrollPosition(e.target.scrollLeft)
-  }
+  const [scrollOffset, setScrollOffset] = useState(0)
+  const containerRef = useRef()
 
   const versions = auditData?.versions || []
-  const maxScroll = Math.max(0, (versions.length - 4) * 100)
+  const maxScroll = Math.max(0, (versions.length - 1) * 1.5)
+
+  // Find selected version index and set initial scroll
+  useEffect(() => {
+    if (selectedVersion && versions.length > 0) {
+      const idx = versions.indexOf(selectedVersion)
+      if (idx >= 0) {
+        setScrollOffset(idx * 1.5)
+      } else {
+        // Default to last version
+        setScrollOffset((versions.length - 1) * 1.5)
+      }
+    }
+  }, [selectedVersion, versions])
+
+  // Handle scroll/wheel events
+  const handleWheel = useCallback((e) => {
+    e.preventDefault()
+    setScrollOffset(prev => {
+      const delta = e.deltaY * 0.01
+      return Math.max(0, Math.min(maxScroll, prev + delta))
+    })
+  }, [maxScroll])
+
+  // Handle slider change
+  const handleSliderChange = useCallback((e) => {
+    const value = parseFloat(e.target.value)
+    setScrollOffset(value)
+  }, [])
+
+  const isMalicious = auditData?.is_malicious
 
   return (
-    <div className={`relative w-full h-[500px] ${auditData?.is_malicious ? 'malicious-bg' : ''}`}>
+    <div 
+      ref={containerRef}
+      className="relative w-full h-[500px]"
+      style={{ backgroundColor: isMalicious ? '#dc2626' : '#FAFBFD' }}
+      onWheel={handleWheel}
+    >
       {/* Malicious package warning */}
-      {auditData?.is_malicious && (
+      {isMalicious && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-xl border-2 border-white">
+          <div className="bg-red-700 text-white px-6 py-3 rounded-lg shadow-xl border-2 border-white">
             <div className="flex items-center gap-3">
               <span className="text-2xl">⚠️</span>
               <div>
-                <p className="font-display text-lg">MALICIOUS PACKAGE DETECTED</p>
-                <p className="font-body text-sm opacity-90">
+                <p className="font-bold text-lg">MALICIOUS PACKAGE DETECTED</p>
+                <p className="text-sm opacity-90">
                   {auditData.malicious_details?.summary || 'This package has been flagged as malicious'}
                 </p>
               </div>
@@ -473,39 +522,40 @@ function HouseScene({ auditData, selectedVersion, onHouseClick }) {
 
       {/* 3D Canvas */}
       <Canvas
-        camera={{ position: [0, 2.5, 5], fov: 50 }}
+        camera={{ position: [0, 2, 6], fov: 45 }}
         shadows
-        className="cursor-pointer"
+        className="cursor-grab active:cursor-grabbing"
       >
         <Scene 
           auditData={auditData}
           selectedVersion={selectedVersion}
           onHouseClick={onHouseClick}
+          scrollOffset={scrollOffset}
         />
       </Canvas>
 
-      {/* Scroll indicator / navigation */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-        <div className="bg-black/50 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-4">
-          <span className="text-white/70 text-sm font-body">
-            {versions.length} versions • Scroll or drag to navigate
-          </span>
+      {/* Navigation controls */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-xl">
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-3 shadow-lg">
+          <div className="flex items-center gap-4">
+            <span className="text-gray-600 text-sm font-medium whitespace-nowrap">
+              {versions.length} versions
+            </span>
+            <input
+              type="range"
+              min="0"
+              max={maxScroll || 1}
+              step="0.1"
+              value={scrollOffset}
+              onChange={handleSliderChange}
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+            />
+            <span className="text-gray-500 text-xs whitespace-nowrap">
+              Scroll to navigate
+            </span>
+          </div>
         </div>
       </div>
-
-      {/* Scroll bar for house navigation */}
-      {versions.length > 5 && (
-        <div 
-          ref={scrollContainerRef}
-          className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-3/4 overflow-x-auto house-scroll"
-          onScroll={handleScroll}
-        >
-          <div 
-            className="h-2 bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 rounded-full"
-            style={{ width: `${versions.length * 50}px` }}
-          />
-        </div>
-      )}
     </div>
   )
 }
@@ -517,4 +567,3 @@ HouseScene.propTypes = {
 }
 
 export default HouseScene
-

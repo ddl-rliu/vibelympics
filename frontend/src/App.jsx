@@ -112,7 +112,7 @@ function App() {
   }, [autoViewDetails, auditData, loading, selectedVersion])
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#FAFBFD' }}>
       {/* Header */}
       <header className="bg-gradient-to-r from-red-600 via-orange-500 to-yellow-400 py-4 px-6 shadow-lg">
         <h1 className="text-3xl md:text-4xl font-display text-white text-center drop-shadow-lg tracking-wide">
@@ -127,11 +127,11 @@ function App() {
       <SearchForm onSearch={handleSearch} loading={loading} />
 
       {/* Main Content Area */}
-      <main className="flex-1 relative">
+      <main className="flex-1 relative" style={{ backgroundColor: '#FAFBFD' }}>
         {/* Error Display */}
         {error && (
           <div className="absolute inset-x-0 top-4 flex justify-center z-50">
-            <div className="bg-red-500/90 text-white px-6 py-3 rounded-lg shadow-xl backdrop-blur-sm">
+            <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-xl">
               <p className="font-body">⚠️ {error}</p>
             </div>
           </div>
@@ -141,7 +141,7 @@ function App() {
         {loading && (
           <div className="flex flex-col items-center justify-center h-64">
             <div className="w-16 h-16 border-4 border-orange-400 border-t-red-500 rounded-full loader"></div>
-            <p className="mt-4 text-white/80 font-body">Scanning for vulnerabilities...</p>
+            <p className="mt-4 text-gray-600 font-body">Scanning for vulnerabilities...</p>
           </div>
         )}
 
@@ -149,10 +149,10 @@ function App() {
         {!loading && !auditData && !error && (
           <div className="flex flex-col items-center justify-center h-64 text-center px-4">
             <div className="text-6xl mb-4">🔍</div>
-            <p className="text-white/90 text-xl font-body mb-2">
+            <p className="text-gray-700 text-xl font-body mb-2">
               Search for a package to begin
             </p>
-            <p className="text-white/60 font-body text-sm max-w-md">
+            <p className="text-gray-500 font-body text-sm max-w-md">
               Select an ecosystem, enter a package name, and optionally specify a version.
               We&apos;ll show you the vulnerability landscape!
             </p>
@@ -181,8 +181,8 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-black/30 py-2 px-4 text-center">
-        <p className="text-white/50 text-xs font-body">
+      <footer className="bg-gray-100 py-2 px-4 text-center border-t border-gray-200">
+        <p className="text-gray-500 text-xs font-body">
           Built for Chainguard Vibelympics • Powered by OSV API
         </p>
       </footer>

@@ -30,19 +30,19 @@ function SearchForm({ onSearch, loading }) {
   return (
     <form 
       onSubmit={handleSubmit}
-      className="bg-gradient-to-b from-gray-900/80 to-gray-800/60 backdrop-blur-sm border-b border-white/10 py-6 px-4"
+      className="bg-white border-b border-gray-200 py-6 px-4 shadow-sm"
     >
       <div className="max-w-5xl mx-auto flex flex-wrap items-end gap-4 justify-center">
         {/* Ecosystem Dropdown */}
         <div className="flex flex-col">
-          <label htmlFor="ecosystem" className="text-white/80 text-sm mb-2 font-body">
+          <label htmlFor="ecosystem" className="text-gray-700 text-sm mb-2 font-body font-medium">
             Ecosystem
           </label>
           <select
             id="ecosystem"
             value={ecosystem}
             onChange={(e) => setEcosystem(e.target.value)}
-            className="bg-gray-800 text-white border-2 border-orange-400/50 rounded-lg px-4 py-3 font-body
+            className="bg-white text-gray-800 border-2 border-gray-300 rounded-lg px-4 py-3 font-body
                        focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30
                        transition-all duration-200 min-w-[180px]"
             required
@@ -58,7 +58,7 @@ function SearchForm({ onSearch, loading }) {
 
         {/* Package Name Input */}
         <div className="flex flex-col flex-1 min-w-[200px] max-w-md">
-          <label htmlFor="packageName" className="text-white/80 text-sm mb-2 font-body">
+          <label htmlFor="packageName" className="text-gray-700 text-sm mb-2 font-body font-medium">
             Package Name
           </label>
           <input
@@ -67,17 +67,17 @@ function SearchForm({ onSearch, loading }) {
             value={packageName}
             onChange={(e) => setPackageName(e.target.value)}
             placeholder="e.g., urllib3, flask, requests"
-            className="bg-gray-800 text-white border-2 border-orange-400/50 rounded-lg px-4 py-3 font-body
+            className="bg-white text-gray-800 border-2 border-gray-300 rounded-lg px-4 py-3 font-body
                        focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30
-                       transition-all duration-200 placeholder:text-white/30"
+                       transition-all duration-200 placeholder:text-gray-400"
             required
           />
         </div>
 
         {/* Version Input (Optional) */}
         <div className="flex flex-col">
-          <label htmlFor="version" className="text-white/80 text-sm mb-2 font-body">
-            Version <span className="text-white/40">(optional)</span>
+          <label htmlFor="version" className="text-gray-700 text-sm mb-2 font-body font-medium">
+            Version <span className="text-gray-400">(optional)</span>
           </label>
           <input
             id="version"
@@ -85,9 +85,9 @@ function SearchForm({ onSearch, loading }) {
             value={version}
             onChange={(e) => setVersion(e.target.value)}
             placeholder="e.g., 1.26.0"
-            className="bg-gray-800 text-white border-2 border-orange-400/50 rounded-lg px-4 py-3 font-body
+            className="bg-white text-gray-800 border-2 border-gray-300 rounded-lg px-4 py-3 font-body
                        focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30
-                       transition-all duration-200 placeholder:text-white/30 w-[140px]"
+                       transition-all duration-200 placeholder:text-gray-400 w-[140px]"
           />
         </div>
 
