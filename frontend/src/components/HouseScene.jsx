@@ -18,8 +18,19 @@ function getSeverityColor(severity) {
   }
 }
 
-// Individual Fire component - positioned to not overlap
-function Fire({ position, intensity = 1, severity, vulnInfo }) {
+// Get fire scale based on severity (0.5x to 2x)
+function getFireScale(severity) {
+  switch (severity?.toUpperCase()) {
+    case 'CRITICAL': return 2.0
+    case 'HIGH': return 1.5
+    case 'MODERATE': return 1.0
+    case 'LOW': return 0.5
+    default: return 0.75
+  }
+}
+
+// Individual Fire component with transparency and varied sizes
+function Fire({ position, intensity = 1, severity, vulnInfo, scale = 1 }) {
   const meshRef = useRef()
   const [hovered, setHovered] = useState(false)
   
@@ -27,33 +38,36 @@ function Fire({ position, intensity = 1, severity, vulnInfo }) {
   useFrame((state) => {
     if (meshRef.current) {
       const time = state.clock.elapsedTime
-      meshRef.current.scale.y = 1 + Math.sin(time * 8 + position[0]) * 0.15
-      meshRef.current.scale.x = 1 + Math.sin(time * 6 + position[0] * 2) * 0.1
+      meshRef.current.scale.y = 1 + Math.sin(time * 8 + position[0]) * 0.2
+      meshRef.current.scale.x = 1 + Math.sin(time * 6 + position[0] * 2) * 0.15
     }
   })
 
-  // Size based on severity
-  const flameSize = 0.08 + intensity * 0.12
-  const flameHeight = 0.2 + intensity * 0.3
+  // Base size multiplied by severity scale (0.5x to 2x)
+  const severityScale = getFireScale(severity) * scale
+  const baseSize = 0.06
+  const baseHeight = 0.15
+  const flameSize = baseSize * severityScale
+  const flameHeight = baseHeight * severityScale
 
   return (
     <group position={position}>
       {/* Black outline */}
       <mesh position={[0, 0, -0.01]}>
-        <coneGeometry args={[flameSize + 0.04, flameHeight + 0.08, 8]} />
-        <meshBasicMaterial color="#000000" />
+        <coneGeometry args={[flameSize + 0.03, flameHeight + 0.06, 8]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.7} />
       </mesh>
       
       {/* Outer red */}
       <mesh>
-        <coneGeometry args={[flameSize + 0.03, flameHeight + 0.06, 8]} />
-        <meshBasicMaterial color="#dc2626" />
+        <coneGeometry args={[flameSize + 0.02, flameHeight + 0.04, 8]} />
+        <meshBasicMaterial color="#dc2626" transparent opacity={0.85} />
       </mesh>
       
       {/* Orange layer */}
       <mesh ref={meshRef} position={[0, 0.01, 0]}>
-        <coneGeometry args={[flameSize + 0.015, flameHeight + 0.02, 8]} />
-        <meshBasicMaterial color="#f97316" />
+        <coneGeometry args={[flameSize + 0.01, flameHeight + 0.02, 8]} />
+        <meshBasicMaterial color="#f97316" transparent opacity={0.9} />
       </mesh>
       
       {/* Yellow core */}
@@ -63,12 +77,12 @@ function Fire({ position, intensity = 1, severity, vulnInfo }) {
         onPointerOut={() => setHovered(false)}
       >
         <coneGeometry args={[flameSize, flameHeight, 8]} />
-        <meshBasicMaterial color="#fef08a" />
+        <meshBasicMaterial color="#fef08a" transparent opacity={0.95} />
       </mesh>
 
       {/* Tooltip on hover */}
       {hovered && vulnInfo && (
-        <Html position={[0, flameHeight + 0.2, 0]} center>
+        <Html position={[0, flameHeight + 0.15, 0]} center>
           <div className="bg-gray-900/95 text-white p-2 rounded shadow-xl min-w-[180px] max-w-[250px] pointer-events-none text-xs">
             <div className="flex items-center gap-2 mb-1">
               <span 
@@ -92,6 +106,7 @@ Fire.propTypes = {
   intensity: PropTypes.number,
   severity: PropTypes.string,
   vulnInfo: PropTypes.object,
+  scale: PropTypes.number,
 }
 
 // Face component for house
@@ -193,14 +208,23 @@ function House({ position, color, version, vulns, onClick, isSelected, isMalicio
 
   const vulnCount = vulns.length
 
-  // Position fires in a row on the roof - spaced apart to not overlap
-  const fires = useMemo(() => {
-    const maxFires = Math.min(vulns.length, 5)
-    return vulns.slice(0, maxFires).map((vuln, i) => {
-      // Space fires evenly across the roof
-      const spacing = 0.25
-      const startX = -((maxFires - 1) * spacing) / 2
-      const x = startX + i * spacing
+  // Seeded random for consistent positioning per house
+  const seededRandom = useCallback((seed) => {
+    const x = Math.sin(seed * 9999) * 10000
+    return x - Math.floor(x)
+  }, [])
+
+  // Position fires with noise - roof fires and overflow to floor
+  const { roofFires, floorFires } = useMemo(() => {
+    const roofArr = []
+    const floorArr = []
+    const maxRoofFires = 4 // Max fires on roof before overflowing to floor
+    
+    vulns.forEach((vuln, i) => {
+      // Add noise to positions using seeded random
+      const seed = i * 137 + (vuln.id?.charCodeAt(0) || 0)
+      const noiseX = (seededRandom(seed) - 0.5) * 0.3
+      const noiseZ = (seededRandom(seed + 1) - 0.5) * 0.25
       
       let intensity = 0.5
       switch (vuln.severity?.toUpperCase()) {
@@ -210,14 +234,39 @@ function House({ position, color, version, vulns, onClick, isSelected, isMalicio
         case 'LOW': intensity = 0.3; break
       }
 
-      return {
-        position: [x, 1.1, 0],
-        intensity,
-        severity: vuln.severity,
-        vulnInfo: vuln,
+      if (i < maxRoofFires) {
+        // Position on roof with noise
+        const spacing = 0.22
+        const startX = -((Math.min(vulns.length, maxRoofFires) - 1) * spacing) / 2
+        const baseX = startX + i * spacing
+        
+        roofArr.push({
+          position: [baseX + noiseX, 1.05 + noiseZ * 0.1, noiseZ],
+          intensity,
+          severity: vuln.severity,
+          vulnInfo: vuln,
+          scale: 1,
+        })
+      } else {
+        // Overflow fires go on floor around the house
+        const floorIndex = i - maxRoofFires
+        const angle = (floorIndex / (vulns.length - maxRoofFires)) * Math.PI * 2 + seededRandom(seed + 2) * 0.5
+        const radius = 0.5 + seededRandom(seed + 3) * 0.3
+        const floorX = Math.cos(angle) * radius + noiseX * 0.2
+        const floorZ = Math.sin(angle) * radius * 0.6 + 0.3 + noiseZ * 0.2
+        
+        floorArr.push({
+          position: [floorX, 0.01, floorZ],
+          intensity,
+          severity: vuln.severity,
+          vulnInfo: vuln,
+          scale: 0.7, // Slightly smaller on floor
+        })
       }
     })
-  }, [vulns])
+    
+    return { roofFires: roofArr, floorFires: floorArr }
+  }, [vulns, seededRandom])
 
   return (
     <group 
@@ -270,13 +319,26 @@ function House({ position, color, version, vulns, onClick, isSelected, isMalicio
       <HouseFace vulnCount={vulnCount} position={[0, 0.45, 0.26]} />
 
       {/* Fires on roof */}
-      {fires.map((fire, i) => (
+      {roofFires.map((fire, i) => (
         <Fire 
-          key={i} 
+          key={`roof-${i}`} 
           position={fire.position} 
           intensity={fire.intensity}
           severity={fire.severity}
           vulnInfo={fire.vulnInfo}
+          scale={fire.scale}
+        />
+      ))}
+
+      {/* Overflow fires on floor around the house */}
+      {floorFires.map((fire, i) => (
+        <Fire 
+          key={`floor-${i}`} 
+          position={fire.position} 
+          intensity={fire.intensity}
+          severity={fire.severity}
+          vulnInfo={fire.vulnInfo}
+          scale={fire.scale}
         />
       ))}
 
@@ -319,11 +381,15 @@ House.propTypes = {
   maliciousSummary: PropTypes.string,
 }
 
-// Ground plane
-function Ground({ isMalicious }) {
+// Ground plane - positioned to cover all houses
+function Ground({ isMalicious, totalWidth }) {
+  // Make ground wide enough to cover all houses plus extra buffer
+  const groundWidth = Math.max(200, totalWidth + 50)
+  const groundCenterX = totalWidth / 2
+  
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <planeGeometry args={[200, 20]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[groundCenterX, 0, 0]} receiveShadow>
+      <planeGeometry args={[groundWidth, 30]} />
       <meshStandardMaterial 
         color={isMalicious ? '#7f1d1d' : '#e5e7eb'} 
         roughness={0.9}
@@ -334,6 +400,7 @@ function Ground({ isMalicious }) {
 
 Ground.propTypes = {
   isMalicious: PropTypes.bool,
+  totalWidth: PropTypes.number,
 }
 
 // Background fires for malicious packages
@@ -426,6 +493,7 @@ function Scene({ auditData, selectedVersion, onHouseClick, scrollOffset }) {
   }, [auditData])
 
   const isMalicious = auditData?.is_malicious
+  const totalWidth = versions.length * 1.5 // spacing between houses
 
   return (
     <>
@@ -438,7 +506,7 @@ function Scene({ auditData, selectedVersion, onHouseClick, scrollOffset }) {
       <CameraController scrollOffset={scrollOffset} totalVersions={versions.length} />
 
       {/* Ground */}
-      <Ground isMalicious={isMalicious} />
+      <Ground isMalicious={isMalicious} totalWidth={totalWidth} />
 
       {/* Background fires for malicious packages */}
       {isMalicious && <BackgroundFires />}
