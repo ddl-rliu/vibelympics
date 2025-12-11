@@ -9,7 +9,7 @@ const ECOSYSTEMS = [
 ]
 
 function SearchForm({ onSearch, loading }) {
-  const [ecosystem, setEcosystem] = useState('')
+  const [ecosystem, setEcosystem] = useState('PyPI')
   const [packageName, setPackageName] = useState('')
   const [version, setVersion] = useState('')
 

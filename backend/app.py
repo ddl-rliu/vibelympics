@@ -90,9 +90,10 @@ def audit_package():
             details = vuln.get('details', '')
             
             # Check for malicious package indicators:
-            # 1. ID starts with "MAL-" (OSV malicious package prefix)
-            # 2. Summary or details contain "malicious"
-            # 3. Source indicates malicious-packages-origins
+            # 1. ID starts with "MAL-" (OSV malicious package prefix) - most reliable
+            # 2. Source indicates malicious-packages-origins
+            # 3. Summary starts with "Malicious code in" or "Malicious package"
+            # Note: Don't just search for "malicious" in content - too many false positives
             
             if vuln_id.startswith('MAL-'):
                 is_malicious = True
@@ -102,16 +103,6 @@ def audit_package():
                     "details": details
                 }
                 logger.warning(f"Malicious package detected via MAL- prefix: {vuln_id}")
-                break
-            
-            if 'malicious' in summary.lower() or 'malicious' in details.lower():
-                is_malicious = True
-                malicious_details = {
-                    "id": vuln_id,
-                    "summary": summary or 'Malicious package detected',
-                    "details": details
-                }
-                logger.warning(f"Malicious package detected via summary/details: {vuln_id}")
                 break
             
             # Check database_specific source
@@ -128,11 +119,24 @@ def audit_package():
                 logger.warning(f"Malicious package detected via source: {vuln_id}")
                 break
             
-            # Check credits for malicious package indicators (e.g., Checkmarx)
+            # Check if summary explicitly indicates a malicious package (not just mentions "malicious")
+            summary_lower = summary.lower()
+            if summary_lower.startswith('malicious code in') or summary_lower.startswith('malicious package'):
+                is_malicious = True
+                malicious_details = {
+                    "id": vuln_id,
+                    "summary": summary or 'Malicious package detected',
+                    "details": details
+                }
+                logger.warning(f"Malicious package detected via summary pattern: {vuln_id}")
+                break
+            
+            # Check credits for malicious package indicators (e.g., Checkmarx malicious packages)
             credits = vuln.get('credits', [])
             for credit in credits:
                 contact = credit.get('contact', [])
-                if any('malicious' in str(c).lower() for c in contact):
+                # Only match if it's specifically about malicious packages, not just contains 'malicious'
+                if any('malicious-packages' in str(c).lower() for c in contact):
                     is_malicious = True
                     malicious_details = {
                         "id": vuln_id,

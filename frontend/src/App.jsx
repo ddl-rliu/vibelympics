@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import SearchForm from './components/SearchForm'
 import HouseScene from './components/HouseScene'
 import VulnerabilityView from './components/VulnerabilityView'
@@ -10,6 +10,7 @@ function App() {
   const [selectedVersion, setSelectedVersion] = useState(null)
   const [viewingHouse, setViewingHouse] = useState(false)
   const [fadeOut, setFadeOut] = useState(false)
+  const [initialSearchDone, setInitialSearchDone] = useState(false)
 
   const handleSearch = useCallback(async (searchParams) => {
     console.log('Searching for package:', searchParams)
@@ -69,6 +70,26 @@ function App() {
       setFadeOut(false)
     }, 500)
   }, [])
+
+  // Auto-search from URL params on load (for testing and demo)
+  useEffect(() => {
+    if (initialSearchDone) return
+    
+    const urlParams = new URLSearchParams(window.location.search)
+    const packageName = urlParams.get('package')
+    const ecosystem = urlParams.get('ecosystem') || 'PyPI'
+    const version = urlParams.get('version')
+    
+    if (packageName) {
+      console.log('Auto-searching from URL params:', { ecosystem, packageName, version })
+      setInitialSearchDone(true)
+      handleSearch({
+        ecosystem,
+        name: packageName,
+        version: version || null,
+      })
+    }
+  }, [initialSearchDone, handleSearch])
 
   return (
     <div className="min-h-screen flex flex-col">

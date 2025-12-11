@@ -254,7 +254,6 @@ function House({ position, color, version, vulns, onClick, isSelected }) {
         color={isSelected ? '#fbbf24' : '#ffffff'}
         anchorX="center"
         anchorY="middle"
-        font="/fonts/SpaceMono-Regular.ttf"
         outlineWidth={0.01}
         outlineColor="#000000"
       >
