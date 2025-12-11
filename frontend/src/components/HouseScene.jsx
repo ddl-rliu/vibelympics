@@ -198,13 +198,6 @@ MaliciousSign.propTypes = {
 function House({ position, color, version, vulns, onClick, isSelected, isMalicious, maliciousSummary }) {
   const groupRef = useRef()
   const [hovered, setHovered] = useState(false)
-  
-  useFrame(() => {
-    if (groupRef.current) {
-      const targetScale = hovered ? 1.08 : 1
-      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1)
-    }
-  })
 
   const vulnCount = vulns.length
 
@@ -345,15 +338,16 @@ function House({ position, color, version, vulns, onClick, isSelected, isMalicio
       {/* Malicious sign */}
       {isMalicious && <MaliciousSign summary={maliciousSummary} />}
 
-      {/* Version label UNDER the house */}
+      {/* Version label in front of the house on the ground */}
       <Text
-        position={[0, -0.15, 0]}
-        fontSize={0.1}
+        position={[0, 0.02, 0.6]}
+        fontSize={0.12}
         color={isSelected ? '#f97316' : '#374151'}
         anchorX="center"
-        anchorY="top"
-        outlineWidth={0.005}
+        anchorY="bottom"
+        outlineWidth={0.008}
         outlineColor="#ffffff"
+        rotation={[-Math.PI / 2, 0, 0]}
       >
         {version.length > 10 ? version.substring(0, 8) + '..' : version}
       </Text>
@@ -442,7 +436,7 @@ function CameraController({ scrollOffset, totalVersions }) {
     // Move camera horizontally based on scroll
     const targetX = scrollOffset
     camera.position.x += (targetX - camera.position.x) * 0.08
-    camera.lookAt(camera.position.x, 0.5, 0)
+    camera.lookAt(camera.position.x, 0.3, 0)
   })
 
   return null
@@ -610,7 +604,7 @@ function HouseScene({ auditData, selectedVersion, onHouseClick }) {
 
       {/* 3D Canvas */}
       <Canvas
-        camera={{ position: [0, 2, 6], fov: 45 }}
+        camera={{ position: [0, 1.5, 3.5], fov: 50 }}
         shadows
         className="cursor-grab active:cursor-grabbing"
       >
